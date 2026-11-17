@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocLib · 个人 Word 资料库</title>
+<style>
+:root{
+  --ink:#242a33; --sub:#6b7480; --line:#e2e8f0; --line2:#eef2f7;
+  --accent:#1f4e79; --accent2:#2e6da4; --accent-soft:#eaf1f8;
+  --bg:#f5f7fa; --panel:#fff; --mark:#ffe9a8; --ok:#2e7d4f; --warn:#b06a12;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; font-family:"Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+  color:var(--ink); background:var(--bg); font-size:14px; line-height:1.6;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+header{
+  flex:0 0 auto; background:var(--panel); border-bottom:1px solid var(--line);
+  padding:10px 18px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  box-shadow:0 1px 3px rgba(31,78,121,.05); z-index:5;
+}
+.brand{display:flex; align-items:baseline; gap:8px; font-weight:700; font-size:16px; color:var(--accent)}
+.brand span{font-size:12px; font-weight:400; color:var(--sub); background:var(--accent-soft);
+  padding:2px 8px; border-radius:20px}
+.searchbar{display:flex; align-items:center; gap:8px; flex:1 1 420px; min-width:280px}
+#q{
+  flex:1; height:36px; padding:0 12px; border:1px solid var(--line); border-radius:8px;
+  font-size:14px; outline:none; background:#fbfcfe; transition:.15s;
+}
+#q:focus{border-color:var(--accent2); box-shadow:0 0 0 3px rgba(46,109,164,.12); background:#fff}
+select{
+  height:36px; padding:0 8px; border:1px solid var(--line); border-radius:8px;
+  background:#fbfcfe; color:var(--ink); outline:none; font-size:13px;
+}
+button{
+  height:36px; padding:0 14px; border:1px solid var(--line); border-radius:8px;
+  background:#fff; color:var(--ink); cursor:pointer; font-size:13px; transition:.15s;
+  font-family:inherit;
+}
+button:hover{border-color:var(--accent2); color:var(--accent)}
+button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+button.primary:hover{background:var(--accent2); border-color:var(--accent2); color:#fff}
+.actions{display:flex; gap:8px; margin-left:auto}
+
+main{flex:1 1 auto; display:grid; grid-template-columns:272px minmax(320px,1fr) 400px;
+  gap:0; min-height:0}
+main.narrow{grid-template-columns:272px 1fr}
+main.narrow #detail{display:none}
+
+.pane{min-height:0; overflow:auto; background:var(--panel)}
+#tree{border-right:1px solid var(--line); padding:10px 8px 30px; background:#fbfcfe}
+#list{border-right:1px solid var(--line); padding:14px 18px 40px}
+#detail{padding:16px 18px 40px}
+
+.pane-title{
+  font-size:12px; font-weight:700; color:var(--sub); letter-spacing:.06em;
+  padding:4px 10px 8px; display:flex; align-items:center; gap:8px; text-transform:uppercase;
+}
+.pane-title .grow{flex:1}
+.mini{height:24px; padding:0 8px; font-size:12px; line-height:22px}
+.icon-btn{width:24px; height:24px; padding:0; line-height:1; border-radius:6px}
+
+/* 树 */
+.tree-root{list-style:none; margin:0; padding:0}
+.tree-root li{list-style:none}
+.node{
+  display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:7px;
+  cursor:pointer; user-select:none; position:relative;
+}
+.node:hover{background:var(--accent-soft)}
+.node.active{background:var(--accent); color:#fff}
+.node.active .count{background:rgba(255,255,255,.25); color:#fff}
+.caret{width:14px; text-align:center; font-size:10px; color:var(--sub); flex:none}
+.node.active .caret{color:#dbe9f6}
+.node .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.node.sys .nm{font-style:italic}
+.node .count{
+  font-size:11px; color:var(--sub); background:var(--line2); border-radius:20px;
+  padding:0 7px; min-width:20px; text-align:center; flex:none;
+}
+.node .count.zero{opacity:.45}
+.children{margin-left:14px; border-left:1px dashed var(--line); padding-left:4px}
+.children.collapsed{display:none}
+
+/* 列表 */
+.result{
+  border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px;
+  margin-bottom:10px; cursor:pointer; transition:.15s; background:#fff;
+}
+.result:hover{border-color:var(--accent2); box-shadow:0 2px 10px rgba(31,78,121,.08)}
+.result.active{border-color:var(--accent); box-shadow:0 0 0 2px rgba(31,78,121,.12)}
+.r-title{font-weight:700; font-size:14.5px; color:var(--accent); margin-bottom:4px}
+.r-meta{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:7px}
+.chip{font-size:11.5px; color:var(--sub); background:var(--line2); border-radius:20px; padding:1px 9px}
+.chip.path{background:#f3f6fa; color:#4a5563}
+.r-snip{font-size:13px; color:#3d4652; line-height:1.65}
+.r-foot{display:flex; gap:8px; margin-top:9px}
+.r-foot button{height:28px; padding:0 10px; font-size:12px}
+mark{background:var(--mark); color:#5a4300; padding:0 1px; border-radius:3px}
+
+/* 问 AI */
+.qa-box{padding:12px 14px; border-bottom:1px solid var(--line); background:#fbfcfe}
+.qa-head{font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px}
+#qa-q{width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--line);
+  border-radius:8px; font-size:13px; font-family:inherit; resize:vertical; outline:none}
+#qa-q:focus{border-color:var(--accent2); box-shadow:0 0 0 3px rgba(46,109,164,.12)}
+.qa-bar{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px}
+#ai-cur{flex:1 1 100%; font-size:11.5px}
+.qa-bar .mini{white-space:nowrap; padding:2px 7px; font-size:11.5px}
+.qa-bar{gap:6px}
+.qa-bar label{font-size:11.5px; white-space:nowrap}
+.qa-hist{max-height:230px; overflow:auto; border:1px solid var(--line); border-radius:8px;
+  margin-bottom:8px; background:#fff}
+.qa-hist-item{display:flex; align-items:center; gap:6px; padding:6px 8px;
+  border-bottom:1px solid #f1f4f8; cursor:pointer; font-size:12.5px}
+.qa-hist-item:hover{background:#f6f9fc}
+.qa-hist-item.active{background:#eaf1f8}
+.qa-hist-item .t{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.qa-hist-item .tag{background:#eef4ea; color:#4a6b3a; border-radius:5px; padding:0 5px; font-size:11px}
+.qa-hist-item button{border:none; background:none; cursor:pointer; font-size:13px; padding:0 2px}
+#detail-handle{position:absolute; left:0; top:0; bottom:0; width:6px;
+  cursor:col-resize; background:transparent; z-index:5}
+#detail-handle:hover{background:var(--accent2)}
+#detail{padding-left:12px}
+.qa-row{display:flex; align-items:center; gap:8px; margin-top:6px}
+.qa-answer{margin-top:10px; font-size:13px; line-height:1.8; color:#2c333c;
+  max-height:42vh; overflow:auto}
+.qa-answer h5{margin:0 0 6px; font-size:12.5px; color:var(--sub)}
+.qa-msg-h{display:flex; align-items:center; gap:8px; margin:6px 0 2px}
+.qa-msg-h span{font-size:12px; color:var(--sub)}
+.qa-msg-body.folded{max-height:5.4em; overflow:hidden; position:relative}
+.qa-msg-body.folded::after{content:"…"; position:absolute; left:0; right:0; bottom:0;
+  height:1.6em; text-align:center; color:var(--sub);
+  background:linear-gradient(transparent, #fff 70%)}
+.qa-src{display:block; width:100%; text-align:left; margin-bottom:6px; padding:6px 8px;
+  border:1px solid var(--line); border-radius:7px; background:#fff; cursor:pointer; font-size:12.5px}
+.qa-src:hover{border-color:var(--accent2)}
+.qa-src b{color:var(--accent)}
+
+/* 详情 */
+.d-head{border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:12px}
+.d-title{font-size:16px; font-weight:700; color:var(--accent); line-height:1.4}
+.d-sub{font-size:12px; color:var(--sub); margin-top:6px; word-break:break-all}
+.d-body{white-space:pre-wrap; font-size:13.5px; line-height:1.85; color:#2c333c}
+.d-body.mark-mode mark{background:var(--mark)}
+.d-actions{display:flex; gap:8px; margin:12px 0 16px}
+.d-actions button{height:32px; font-size:12.5px}
+
+/* 空状态 */
+.empty{padding:40px 20px; text-align:center; color:var(--sub); font-size:13.5px}
+.empty h3{color:var(--ink); font-size:15px; margin:0 0 8px}
+.empty code{background:var(--line2); padding:1px 6px; border-radius:5px; font-size:12.5px}
+
+/* 模态 */
+.mask{position:fixed; inset:0; background:rgba(24,32,42,.38); display:none;
+  align-items:center; justify-content:center; z-index:50; padding:20px}
+.mask.show{display:flex}
+.modal{background:#fff; border-radius:14px; width:min(620px,100%); max-height:80vh;
+  display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(20,30,45,.28); overflow:hidden}
+.modal h3{margin:0; padding:16px 20px; font-size:15px; border-bottom:1px solid var(--line); color:var(--accent)}
+.modal .body{padding:16px 20px; overflow:auto}
+.modal .foot{padding:12px 20px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; background:#fafbfd}
+.modal input[type=text]{width:100%; height:38px; padding:0 12px; border:1px solid var(--line);
+  border-radius:8px; font-size:13.5px; font-family:inherit; outline:none}
+.modal input[type=text]:focus{border-color:var(--accent2); box-shadow:0 0 0 3px rgba(46,109,164,.12)}
+.hint{font-size:12.5px; color:var(--sub); margin:8px 0 0; line-height:1.7}
+.rep{font-size:13px}
+.rep .row{display:flex; gap:8px; padding:6px 0; border-bottom:1px solid var(--line2)}
+.rep .tag{flex:none; font-size:11px; border-radius:5px; padding:1px 7px; height:20px; line-height:18px}
+.tag.ok{background:#e6f4ea; color:var(--ok)}
+.tag.up{background:#fff4e3; color:var(--warn)}
+.tag.fail{background:#fdecea; color:#a02a1e}
+.tag.skip{background:#eef2f7; color:var(--sub)}
+
+/* 状态栏 */
+footer{
+  flex:0 0 auto; background:var(--panel); border-top:1px solid var(--line);
+  padding:6px 18px; font-size:12px; color:var(--sub); display:flex; gap:18px;
+  align-items:center; justify-content:space-between;
+}
+#toast{
+  position:fixed; left:50%; bottom:54px; transform:translateX(-50%) translateY(12px);
+  background:#1e2b38; color:#fff; padding:9px 18px; border-radius:9px; font-size:13px;
+  opacity:0; pointer-events:none; transition:.22s; z-index:99; max-width:70vw;
+}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.spin{display:inline-block; width:12px; height:12px; border:2px solid #cfd8e3;
+  border-top-color:var(--accent2); border-radius:50%; animation:sp .7s linear infinite;
+  vertical-align:-1px; margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.chip.bad{background:#fdecea; color:#a02a1e}
+.chip.sem{background:#e6f4ea; color:#2e7d4f}
+.sec{margin-bottom:18px}
+.sec h4{margin:0 0 8px; font-size:13.5px; color:var(--accent)}
+.sec .row{display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap}
+.sec input[type=text],.sec input[type=password]{height:32px; padding:0 10px; border:1px solid var(--line);
+  border-radius:7px; font-size:13px; font-family:inherit; outline:none; flex:1; min-width:120px}
+.sec .kv{font-size:12.5px; color:var(--sub); line-height:1.9}
+.tagline{display:inline-block; font-size:11.5px; padding:1px 8px; border-radius:20px;
+  background:var(--line2); color:var(--sub); margin-left:6px}
+.tagline.warn{background:#fff4e3; color:#8a4b0f}
+.tagline.ok{background:#e6f4ea; color:var(--ok)}
+
+/* 右键菜单 */
+.ctxmenu{position:fixed; z-index:80; background:#fff; border:1px solid var(--line);
+  border-radius:10px; box-shadow:0 10px 30px rgba(20,30,45,.18);
+  padding:5px; min-width:158px; font-size:13px}
+.ctxmenu .mi{padding:7px 12px; border-radius:6px; cursor:pointer; white-space:nowrap}
+.ctxmenu .mi:hover{background:var(--accent-soft); color:var(--accent)}
+.ctxmenu .mi.danger{color:#a02a1e}
+.ctxmenu .mi.danger:hover{background:#fdecea}
+.ctxmenu .mi.disabled{color:#b6bec8; pointer-events:none}
+.ctxmenu .sep{height:1px; background:var(--line2); margin:4px 6px}
+
+/* 树形节点选择器 */
+.tp{max-height:52vh; overflow:auto; border:1px solid var(--line); border-radius:10px; padding:6px; background:#fbfcfe}
+.tp-row{display:flex; align-items:center; gap:6px; padding:6px 6px; border-radius:7px; cursor:pointer; font-size:13.5px}
+.tp-row:hover{background:var(--accent-soft)}
+.tp-row.sel{background:var(--accent); color:#fff}
+.tp-row.sel .tp-caret{color:#dbe9f6}
+.tp-row.dis{opacity:.38; pointer-events:none}
+.tp-row em{font-style:normal; color:#8b95a1; font-size:11.5px}
+.tp-caret{width:14px; text-align:center; font-size:10px; color:var(--sub); flex:none}
+.tp-name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tp-kids.collapsed{display:none}
+.tp-check{width:16px; font-size:13px; color:var(--accent2); flex:none}
+.tp-row.sel .tp-check{color:#fff}
+button.danger{color:#a02a1e; border-color:#e6c9c4}
+button.danger:hover{background:#fdecea; border-color:#a02a1e; color:#a02a1e}
+
+/* 拖拽指示 */
+.node.drop-child{outline:2px dashed var(--accent2); outline-offset:-2px; background:var(--accent-soft)}
+.node.drop-before::before,.node.drop-after::after{
+  content:""; position:absolute; left:6px; right:6px; height:3px; background:var(--accent2); border-radius:2px}
+.node.drop-before::before{top:-2px}
+.node.drop-after::after{bottom:-2px}
+.node.dragging{opacity:.45}
+.result.dragging{opacity:.45}
+#tree.drop-target{background:#eef5fc}
+
+/* 回收站 */
+.rb{display:flex; align-items:center; gap:10px; padding:9px 10px; border-bottom:1px solid var(--line2); font-size:13px}
+.rb:last-child{border-bottom:0}
+.rb .rb-name{flex:1; font-weight:600}
+.rb .rb-meta{color:var(--sub); font-size:12px}
+.rb button{height:28px; padding:0 10px; font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">DocLib <span id="subject">信号分析与处理</span></div>
+  <div class="searchbar">
+    <input id="q" placeholder="输入关键词搜索，例如：卷积定理 / 吉布斯 / sinc / 拉普拉斯">
+    <select id="scope" title="搜索范围">
+      <option value="subtree">含下级</option>
+      <option value="self">本节点</option>
+      <option value="all">全库</option>
+    </select>
+    <button id="btn-search" class="primary">搜索</button>
+    <button id="btn-clear">清除</button>
+  </div>
+  <div class="actions">
+    <button id="btn-map" title="打开知识导图">知识导图</button>
+    <select id="model-pick" title="当前使用的 AI 模型（免费/付费可切换）" style="max-width:190px"></select>
+    <button id="btn-import">导入 Word</button>
+    <button id="btn-recycle">回收站</button>
+    <button id="btn-backup">备份</button>
+    <button id="btn-settings">设置</button>
+  </div>
+</header>
+
+<main id="main">
+  <aside id="tree" class="pane">
+    <div class="pane-title">
+      <span class="grow">知识树</span>
+      <button class="icon-btn" id="btn-add-root" title="新建顶层节点">+</button>
+    </div>
+    <ul class="tree-root" id="tree-root"></ul>
+  </aside>
+
+  <section id="list" class="pane">
+    <div id="list-head" class="pane-title"><span class="grow">文档</span><span id="list-count"></span></div>
+    <div id="list-body"></div>
+  </section>
+
+  <aside id="detail" class="pane">
+    <div class="qa-box">
+      <div class="qa-head">问 AI（按当前检索范围取材）</div>
+      <div id="qa-hist-panel" class="qa-hist" style="display:none"></div>
+      <div class="qa-bar">
+        <span id="ai-cur" class="kv" title="当前实际生效的模型"></span>
+        <button class="mini" id="qa-new" title="开一个新话题">＋ 新对话</button>
+        <label class="kv" style="display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="qa-follow" checked title="把上文一起送给模型（追问时保持上下文）"> 追问
+        </label>
+        <button class="mini" id="qa-hist">历史</button>
+        <button class="mini" id="qa-export" title="把当前会话导出成 Word 笔记">⤓ 导出</button>
+      </div>
+      <div class="qa-bar" id="qa-export-bar" style="display:none">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;cursor:pointer">
+          <input type="checkbox" id="qa-pick-all"> 全选
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;cursor:pointer"
+               title="每条来源后附一句原文摘录，复盘时更好对照">
+          <input type="checkbox" id="qa-snippet"> 附摘录
+        </label>
+        <button class="mini" id="qa-export-sel" title="只导出勾选的问答">⤓ 导出选中</button>
+        <select class="mini" id="qa-export-mode" title="导出为逐问笔记，还是提纲化复习资料"
+                style="height:24px;padding:0 4px;font-size:11.5px">
+          <option value="qa">问答笔记</option>
+          <option value="outline">复习提纲</option>
+        </select>
+        <button class="mini" id="qa-export-batch" title="把历史里勾选的多个会话合并成一本">合并导出</button>
+        <span class="kv" id="qa-pick-count" style="font-size:11px"></span>
+      </div>
+      <textarea id="qa-q" rows="2" placeholder="例如：卷积定理是怎么证明的？（Ctrl+Enter 发送）"></textarea>
+      <div class="qa-row">
+        <button class="primary mini" id="qa-go">提问</button>
+        <span id="qa-meta" class="kv"></span>
+      </div>
+      <div id="qa-answer" class="qa-answer" style="display:none"></div>
+    </div>
+    <div class="pane-title">内容预览</div>
+    <div id="detail-body" class="empty">点左侧节点或搜索，再点一条结果</div>
+  </aside>
+</main>
+
+<footer>
+  <div id="status">正在载入…</div>
+  <div id="status-right"></div>
+</footer>
+
+<div class="mask" id="mask">
+  <div class="modal">
+    <h3 id="modal-title">标题</h3>
+    <div class="body" id="modal-body"></div>
+    <div class="foot" id="modal-foot"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = async (path, opt) => {
+  const r = await fetch(path, opt);
+  const j = await r.json();
+  if (j && j.error) throw new Error(j.error);
+  return j;
+};
+let state = { nodeId:null, scope:'subtree', query:'', tree:[], currentDoc:null };
+
+function toast(msg, ms=2200){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), ms);
+}
+function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function highlight(text, terms){
+  let out = esc(text);
+  (terms||[]).slice().sort((a,b)=>b.length-a.length).forEach(t=>{
+    if(!t) return;
+    const re = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+    out = out.replace(re, m=>`<mark>${m}</mark>`);
+  });
+  return out;
+}
+
+/* ---------- 树 ---------- */
+function renderTree(){
+  const root = $('#tree-root');
+  root.innerHTML = '';
+  const build = (nodes, parent, depth) => {
+    const ul = document.createElement('ul');
+    ul.className = depth === 0 ? 'tree-root' : 'children';
+    nodes.forEach(n=>{
+      const li = document.createElement('li');
+      const hasKids = n.children && n.children.length;
+      const div = document.createElement('div');
+      div.className = 'node' + (n.is_system ? ' sys':'') + (state.nodeId===n.id?' active':'');
+      div.dataset.id = n.id;
+      div.innerHTML =
+        `<span class="caret">${hasKids ? '▾':''}</span>` +
+        `<span class="nm" title="${esc(n.name)}">${esc(n.name)}</span>` +
+        `<span class="count ${(n._sub_count||0)===0?'zero':''}" title="含下级文档数">${n._sub_count||0}</span>`;
+      div.onclick = e => { e.stopPropagation(); closeMenu(); selectNode(n.id); };
+      div.oncontextmenu = e => {
+        e.preventDefault(); e.stopPropagation();
+        selectNode(n.id);
+        nodeMenu(n, e);
+      };
+      attachNodeDrag(div, n);
+      attachNodeDrop(div, n);
+      li.appendChild(div);
+      if(hasKids){
+        const kids = build(n.children, li, depth+1);
+        li.appendChild(kids);
+        div.querySelector('.caret').onclick = ev=>{
+          ev.stopPropagation();
+          kids.classList.toggle('collapsed');
+          div.querySelector('.caret').textContent = kids.classList.contains('collapsed')?'▸':'▾';
+        };
+      }
+      ul.appendChild(li);
+    });
+    return ul;
+  };
+  const ul = build(state.tree, root, 0);
+  root.appendChild(ul);
+}
+
+async function loadTree(){
+  const d = await api('/api/tree');
+  state.tree = d.tree;
+  renderTree();
+  const s = d.stats || {};
+  $('#status').textContent = `文档 ${s.documents||0} 份 · 切块 ${s.chunks||0} 个 · 节点 ${s.nodes||0} 个 · 挂载 ${s.mounted||0} 处`;
+  $('#status-right').textContent = '本地运行 · 数据不出本机';
+}
+
+async function selectNode(id){
+  state.nodeId = id;
+  document.querySelectorAll('.node').forEach(el=>{
+    el.classList.toggle('active', Number(el.dataset.id)===id);
+  });
+  if(state.query) await doSearch(); else await loadDocs();
+}
+
+/* ---------- 右键菜单 ---------- */
+let ctxEl = null;
+function closeMenu(){ if(ctxEl){ ctxEl.remove(); ctxEl = null; } }
+function showMenu(x, y, items){
+  closeMenu();
+  const m = document.createElement('div');
+  m.className = 'ctxmenu';
+  items.forEach(it=>{
+    if(it === '-'){ const s=document.createElement('div'); s.className='sep'; m.appendChild(s); return; }
+    const b = document.createElement('div');
+    b.className = 'mi' + (it.danger?' danger':'') + (it.disabled?' disabled':'');
+    b.textContent = it.label;
+    b.onclick = ()=>{ closeMenu(); it.action && it.action(); };
+    m.appendChild(b);
+  });
+  m.style.left = x + 'px'; m.style.top = y + 'px';
+  document.body.appendChild(m);
+  const r = m.getBoundingClientRect();
+  if(r.right > window.innerWidth - 8)  m.style.left = (window.innerWidth - r.width - 8) + 'px';
+  if(r.bottom > window.innerHeight - 8) m.style.top = (window.innerHeight - r.height - 8) + 'px';
+  ctxEl = m;
+}
+document.addEventListener('click', closeMenu);
+window.addEventListener('blur', closeMenu);
+
+async function createChild(n){
+  const name = prompt('新建子节点名称：');
+  if(!name) return;
+  await api('/api/node/create',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({parent_id:n.id, name})});
+  toast('已新建'); await loadTree();
+}
+async function renameNode(n){
+  const name = prompt('新名称：', n.name);
+  if(!name || name===n.name) return;
+  await api('/api/node/rename',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({node_id:n.id, name})});
+  toast('已重命名'); await loadTree();
+}
+async function deleteNode(n){
+  if(!confirm(`删除节点「${n.name}」及其所有子节点？\n\n· 文档不会被删除\n· 只挂在这些节点上的文档会回到「未分类」\n· 可从备份找回`)) return;
+  const r = await api('/api/node/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({node_id:n.id})});
+  toast(`已删除 ${r.deleted} 个节点，相关文档已回收`);
+  state.nodeId = null; await loadTree(); await loadDocs();
+}
+async function reorderNode(n, delta){
+  const r = await api('/api/node/reorder',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({node_id:n.id, delta})});
+  if(!r.ok) toast(r.error || '无法移动');
+  await loadTree();
+  await refreshModelPicker();
+}
+
+/* ---------- 树索引 / 移动 / 升降级 ---------- */
+function indexTree(){
+  const map = {};
+  const walk = (nodes, parent)=>{
+    (nodes||[]).forEach((n,i)=>{
+      map[n.id] = {n, parent, index:i, siblings:nodes};
+      walk(n.children||[], n);
+    });
+  };
+  walk(state.tree, null);
+  return map;
+}
+function subtreeIds(n){
+  const out=[n.id];
+  (n.children||[]).forEach(c=>out.push(...subtreeIds(c)));
+  return out;
+}
+function findNodeById(id){
+  let hit=null;
+  const walk=nodes=>{ (nodes||[]).forEach(n=>{ if(n.id===id) hit=n; if(!hit) walk(n.children); }); };
+  walk(state.tree); return hit;
+}
+function nextSiblingId(id){
+  const m = indexTree()[id];
+  if(!m) return null;
+  const s = m.siblings[m.index+1];
+  return s ? s.id : null;
+}
+async function moveNodeTo(id, parentId, beforeId){
+  try{
+    const r = await api('/api/node/move',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node_id:id, parent_id:parentId==null?null:parentId, before_id:beforeId||null})});
+    if(!r.ok){ toast(r.error || '移动失败'); return false; }
+    await loadTree();
+    return true;
+  }catch(e){ toast('移动失败：'+e.message); return false; }
+}
+async function indentOutdent(id, kind){
+  try{
+    const r = await api('/api/node/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node_id:id})});
+    if(!r.ok){ toast(r.error || '操作失败'); return; }
+    toast(kind==='indent' ? '已降级' : '已升级');
+    await loadTree();
+  }catch(e){ toast('操作失败：'+e.message); }
+}
+
+/* ---------- 树形节点选择器（单选 / 多选） ---------- */
+function treePicker(opts){
+  const multi = !!opts.multi;
+  const exclude = opts.exclude || new Set();
+  const checked = new Set(opts.checked || []);
+  let sel = null;
+
+  const build = (nodes, depth)=> (nodes||[]).map(n=>{
+    const hasKids = n.children && n.children.length;
+    const dis = exclude.has(n.id) || (opts.noSystem && n.is_system);
+    const on = checked.has(n.id);
+    return `<div class="tp-row ${dis?'dis':''} ${on?'sel':''}" data-id="${n.id}" style="padding-left:${6+depth*18}px">
+        ${multi?`<span class="tp-check">${on?'☑':'☐'}</span>`:''}
+        <span class="tp-caret">${hasKids?'▾':'·'}</span>
+        <span class="tp-name">${esc(n.name)}${n.is_system?' <em>（临时）</em>':''}</span>
+        <span class="chip">${n._sub_count||0}</span>
+      </div>` + (hasKids
+        ? `<div class="tp-kids" id="tpk-${n.id}">${build(n.children, depth+1)}</div>` : '');
+  }).join('');
+
+  showModal(opts.title,
+    `<p style="margin:0 0 10px">${opts.hint||''}</p>
+     <div class="tp" id="tp-box">${build(state.tree,0)}</div>`,
+    `<button onclick="closeModal()">取消</button>
+     <button class="primary" id="tp-ok">${multi ? '保存挂载' : '确定'}</button>`);
+
+  const box = $('#tp-box');
+  box.querySelectorAll('.tp-caret').forEach(c=>{
+    c.onclick = ev=>{
+      ev.stopPropagation();
+      const row = ev.target.closest('.tp-row');
+      const kids = document.getElementById('tpk-'+row.dataset.id);
+      if(!kids) return;
+      kids.classList.toggle('collapsed');
+      c.textContent = kids.classList.contains('collapsed') ? '▸' : '▾';
+    };
+  });
+  box.querySelectorAll('.tp-row').forEach(row=>{
+    row.onclick = ()=>{
+      if(row.classList.contains('dis')) return;
+      const id = Number(row.dataset.id);
+      if(multi){
+        if(checked.has(id)){ checked.delete(id); row.classList.remove('sel'); }
+        else { checked.add(id); row.classList.add('sel'); }
+        row.querySelector('.tp-check').textContent = checked.has(id) ? '☑' : '☐';
+      }else{
+        box.querySelectorAll('.tp-row').forEach(r=>r.classList.remove('sel'));
+        row.classList.add('sel');
+        sel = id;
+      }
+    };
+  });
+  $('#tp-ok').onclick = ()=>{
+    if(multi){ closeModal(); opts.onPick([...checked]); return; }
+    if(sel == null){ toast('请先选择一个节点'); return; }
+    closeModal();
+    opts.onPick(sel);
+  };
+}
+
+function moveToDialog(n){
+  treePicker({
+    title: '移动节点「' + n.name + '」',
+    hint: '选择新的父节点；当前节点及其所有子节点不可选。',
+    exclude: new Set(subtreeIds(n)),
+    noSystem: true,
+    onPick: async pid=>{ if(await moveNodeTo(n.id, pid, null)) toast('已移动'); }
+  });
+}
+
+/* ---------- 拖拽 ---------- */
+function clearDrop(el){ el.classList.remove('drop-before','drop-after','drop-child'); }
+
+function attachNodeDrag(div, n){
+  if(!n.is_system){
+    div.draggable = true;
+    div.ondragstart = e=>{
+      e.stopPropagation();
+      e.dataTransfer.setData('text/plain', JSON.stringify({t:'node', id:n.id}));
+      e.dataTransfer.effectAllowed = 'move';
+      div.classList.add('dragging');
+    };
+    div.ondragend = ()=> div.classList.remove('dragging');
+  }
+}
+
+function attachNodeDrop(div, n){
+  div.ondragover = e=>{
+    e.preventDefault();
+    const r = div.getBoundingClientRect();
+    const y = e.clientY - r.top;
+    clearDrop(div);
+    if(y < r.height*0.3) div.classList.add('drop-before');
+    else if(y > r.height*0.7) div.classList.add('drop-after');
+    else div.classList.add('drop-child');
+  };
+  div.ondragleave = ()=> clearDrop(div);
+  div.ondrop = async e=>{
+    e.preventDefault(); e.stopPropagation();
+    const zone = div.classList.contains('drop-before') ? 'before'
+               : div.classList.contains('drop-after')  ? 'after' : 'child';
+    clearDrop(div);
+    let payload = null;
+    try{ payload = JSON.parse(e.dataTransfer.getData('text/plain') || 'null'); }catch(_){}
+    if(!payload) return;
+
+    if(payload.t === 'doc'){
+      try{
+        await api('/api/doc/move',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({doc_id:payload.id, node_id:n.id})});
+        toast('已挂到「'+n.name+'」');
+        await loadTree();
+        state.query ? doSearch() : loadDocs();
+      }catch(err){ toast('移动失败：'+err.message); }
+      return;
+    }
+
+    if(payload.t === 'node'){
+      if(payload.id === n.id) return;
+      const dragged = findNodeById(payload.id);
+      if(dragged && subtreeIds(dragged).includes(n.id)){ toast('不能移动到自己的子节点下'); return; }
+      if(zone === 'child'){
+        if(n.is_system){ toast('不能放进「未分类」'); return; }
+        await moveNodeTo(payload.id, n.id, null);
+      }else{
+        const pid = n.parent_id == null ? null : n.parent_id;
+        const pnode = pid && findNodeById(pid);
+        if(pnode && pnode.is_system){ toast('不能放到「未分类」下'); return; }
+        const before = zone === 'before' ? n.id : nextSiblingId(n.id);
+        await moveNodeTo(payload.id, pid, before);
+      }
+    }
+  };
+}
+
+function nodeMenu(n, ev){
+  const info = indexTree()[n.id] || {};
+  const canDemote = !n.is_system && info.siblings && info.index > 0;
+  const canPromote = !n.is_system && !!info.parent;
+  const items = [];
+  if(!n.is_system){
+    items.push({label:'新建子节点', action:()=>createChild(n)});
+    items.push({label:'重命名', action:()=>renameNode(n)});
+    items.push('-');
+    items.push({label:'← 升级（提升一级）', disabled:!canPromote,
+                action:()=>indentOutdent(n.id,'outdent')});
+    items.push({label:'→ 降级（成为上个兄弟的子节点）', disabled:!canDemote,
+                action:()=>indentOutdent(n.id,'indent')});
+    items.push('-');
+  }
+  items.push({label:'↑ 上移', action:()=>reorderNode(n,-1)});
+  items.push({label:'↓ 下移', action:()=>reorderNode(n, 1)});
+  if(!n.is_system){
+    items.push({label:'移动到…', action:()=>moveToDialog(n)});
+    items.push('-');
+    items.push({label:'删除节点', danger:true, action:()=>deleteNode(n)});
+  }
+  showMenu(ev.clientX, ev.clientY, items);
+}
+
+/* ---------- 回收站（节点 / 文档 两个页签） ---------- */
+let rbTab = 'nodes';
+
+async function openRecycle(){
+  rbTab = 'nodes';
+  showModal('回收站', `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <button id="rb-tab-node" class="primary">节点</button>
+      <button id="rb-tab-doc">文档</button>
+      <span style="flex:1"></span>
+      <button class="danger" id="rb-clear">清空</button>
+    </div>
+    <div id="rb-box"><span class="spin"></span>载入中…</div>`,
+    `<button onclick="closeModal()">关闭</button>`);
+  $('#rb-tab-node').onclick = ()=>{ rbTab='nodes'; syncTabs(); refreshRecycle(); };
+  $('#rb-tab-doc').onclick  = ()=>{ rbTab='docs';  syncTabs(); refreshRecycle(); };
+  $('#rb-clear').onclick = clearRecycle;
+  syncTabs();
+  await refreshRecycle();
+}
+
+function syncTabs(){
+  $('#rb-tab-node').className = rbTab==='nodes' ? 'primary' : '';
+  $('#rb-tab-doc').className  = rbTab==='docs'  ? 'primary' : '';
+  $('#rb-clear').textContent  = rbTab==='nodes' ? '清空节点回收站' : '清空文档回收站';
+}
+
+async function clearRecycle(){
+  const what = rbTab==='nodes' ? '节点' : '文档记录';
+  if(!confirm(`清空${what}回收站？此操作不可恢复。\n\n磁盘上的原文件不会被删除。`)) return;
+  try{
+    const url = rbTab==='nodes' ? '/api/recycle/purge' : '/api/recycle/purge_docs';
+    const r = await api(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({all:true})});
+    toast(`已永久删除 ${r.purged} 项`);
+    await loadTree(); await refreshRecycle();
+  }catch(e){ toast('清空失败：'+e.message); }
+}
+
+async function refreshRecycle(){
+  const box = $('#rb-box');
+  try{
+    const d = await api('/api/recycle');
+    const list = rbTab==='nodes' ? (d.nodes||[]) : (d.documents||[]);
+    if(!list.length){
+      box.innerHTML = `<p class="hint">${rbTab==='nodes'?'节点':'文档'}回收站是空的。</p>`;
+      return;
+    }
+    box.innerHTML = list.map(it=>{
+      const isNode = rbTab==='nodes';
+      const meta = isNode
+        ? `原位置：${esc(it.parent_name||'顶层')} · 删除于 ${new Date(it.deleted_at).toLocaleString('zh-CN')}`
+          + (it.doc_count ? ` · 曾挂 ${it.doc_count} 份文档` : '')
+        : `${esc((it.file_type||'').toUpperCase())} · ${it.char_count||0} 字 · 原挂载：${esc(it.node_names||'未分类')}`
+          + ` · 删除于 ${new Date(it.deleted_at).toLocaleString('zh-CN')}`;
+      return `<div class="rb">
+        <div style="flex:1">
+          <div class="rb-name">${esc(it.title || it.name)}</div>
+          <div class="rb-meta">${meta}</div>
+        </div>
+        <button data-id="${it.id}" data-act="restore">恢复</button>
+        <button data-id="${it.id}" data-act="purge" class="danger">彻底删除</button>
+      </div>`;
+    }).join('');
+
+    box.querySelectorAll('button').forEach(b=>{
+      b.onclick = async ()=>{
+        const id = Number(b.dataset.id);
+        const isNode = rbTab==='nodes';
+        if(b.dataset.act === 'purge'){
+          const tip = isNode
+            ? '彻底删除该节点及其所有子节点？'
+            : '彻底删除这条文档记录（连同索引）？';
+          if(!confirm(tip + '\n\n此操作不可恢复；磁盘上的原文件不会被删除。')) return;
+          b.disabled = true;
+          try{
+            const r = isNode
+              ? await api('/api/recycle/purge',{method:'POST',headers:{'Content-Type':'application/json'},
+                  body:JSON.stringify({node_id:id})})
+              : await api('/api/recycle/purge_docs',{method:'POST',headers:{'Content-Type':'application/json'},
+                  body:JSON.stringify({doc_id:id})});
+            toast(`已永久删除 ${r.purged} 项`);
+            await loadTree(); await refreshRecycle();
+          }catch(e){ toast('删除失败：'+e.message); b.disabled=false; }
+          return;
+        }
+        b.disabled = true;
+        try{
+          if(isNode){
+            const r = await api('/api/recycle/restore',{method:'POST',
+              headers:{'Content-Type':'application/json'},body:JSON.stringify({node_id:id})});
+            toast(`已恢复 ${r.restored} 个节点`);
+          }else{
+            await api('/api/doc/restore',{method:'POST',
+              headers:{'Content-Type':'application/json'},body:JSON.stringify({doc_id:id})});
+            toast('文档已恢复');
+          }
+          await loadTree(); await refreshRecycle();
+        }catch(e){ toast('恢复失败：'+e.message); b.disabled=false; }
+      };
+    });
+  }catch(e){ box.innerHTML = `<p style="color:#a02a1e">载入失败：${esc(e.message)}</p>`; }
+}
+
+/* ---------- 文档列表 ---------- */
+function resultCard(r, terms){
+  const el = document.createElement('div');
+  el.className = 'result';
+  el.innerHTML = `
+    <div class="r-title">${esc(r.title)}</div>
+    <div class="r-meta">
+      <span class="chip">${(r.node_ids&&r.node_ids.length>1)?'已挂 '+r.node_ids.length+' 个节点：':''}${esc(r.node_names||'未分类')}</span>
+      <span class="chip path">${esc(r.heading_path||'')}</span>
+      ${(r.quality!==undefined && r.quality < 0.6)
+        ? `<span class="chip bad" title="${esc(r.quality_note||'')}">识别质量低 ${(r.quality*100|0)}%</span>` : ''}
+      ${r.chunks?`<span class="chip">${r.chunks} 块</span>`:''}
+      ${r.semantic?`<span class="chip sem" title="由本地向量模型命中（不是字面匹配）">语义命中</span>`:''}
+      ${r.score!==undefined?`<span class="chip">相关度 ${r.score}</span>`:''}
+    </div>
+    <div class="r-snip">${highlight(r.snippet||'', terms||[])}</div>
+    <div class="r-foot">
+      ${r.chunk_id?`<button data-act="preview">预览这一节</button>`:''}
+      <button data-act="open">打开原文件</button>
+      <button data-act="mount">挂载节点…</button>
+      <button data-act="del" class="danger">删除</button>
+    </div>`;
+  el.querySelector('[data-act="preview"]').onclick = e=>{ e.stopPropagation(); showChunk(r.chunk_id); };
+  el.querySelector('[data-act="open"]').onclick = e=>{ e.stopPropagation(); openDoc(r.doc_id); };
+  el.querySelector('[data-act="mount"]').onclick = e=>{ e.stopPropagation(); mountDialog(r.doc_id, r.title, r.node_ids); };
+  el.querySelector('[data-act="del"]').onclick = e=>{ e.stopPropagation(); deleteDoc(r.doc_id, r.title); };
+  el.draggable = true;
+  el.ondragstart = e=>{
+    e.dataTransfer.setData('text/plain', JSON.stringify({t:'doc', id:r.doc_id}));
+    e.dataTransfer.effectAllowed = 'move';
+    el.classList.add('dragging');
+    document.getElementById('tree').classList.add('drop-target');
+  };
+  el.ondragend = ()=>{
+    el.classList.remove('dragging');
+    document.getElementById('tree').classList.remove('drop-target');
+  };
+  el.onclick = ()=>{ document.querySelectorAll('.result').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active'); if(r.chunk_id) showChunk(r.chunk_id); };
+  return el;
+}
+
+async function loadDocs(){
+  const box = $('#list-body');
+  const sc = state.scope;
+  let qs = `?scope=${sc}` + (state.nodeId?`&node=${state.nodeId}`:'');
+  if(!state.nodeId && sc!=='all'){ qs = '?scope=all'; }
+  box.innerHTML = '<div class="empty"><span class="spin"></span>载入中…</div>';
+  try{
+    const d = await api('/api/docs'+qs);
+    $('#list-head .grow').textContent = state.nodeId ? '本节点范围内的文档' : '全部文档';
+    $('#list-count').textContent = d.total ? `${d.total} 份` : '';
+    if(!d.total){
+      box.innerHTML = `<div class="empty"><h3>这里还没有文档</h3>
+        <p>点右上角「导入 Word」→「浏览文件夹…」或「选择文件…」即可（支持 docx/doc/pdf/pptx/图片/md/txt）。</p>
+        <p>导入后会自动判断该挂到哪个节点，判断模糊的会放进 <code>未分类</code>。</p></div>`;
+      return;
+    }
+    box.innerHTML='';
+    d.results.forEach(r=> box.appendChild(resultCard(r, [])));
+  }catch(e){ box.innerHTML = `<div class="empty">载入失败：${esc(e.message)}</div>`; }
+}
+
+/* ---------- 搜索 ---------- */
+async function doSearch(){
+  const q = $('#q').value.trim();
+  if(!q){ state.query=''; loadDocs(); return; }
+  state.query = q;
+  const box = $('#list-body');
+  box.innerHTML = '<div class="empty"><span class="spin"></span>搜索中…</div>';
+  let qs = `?q=${encodeURIComponent(q)}&scope=${state.scope}` + (state.nodeId?`&node=${state.nodeId}`:'');
+  try{
+    const d = await api('/api/search'+qs);
+    $('#list-head .grow').textContent = `搜索「${q}」`;
+    $('#list-count').textContent = d.total ? `${d.total} 份` : '';
+    if(!d.total){
+      box.innerHTML = `<div class="empty"><h3>没有找到</h3>
+        <p>试试更短的关键词，或把范围切到「全库」。</p>
+        <p style="font-size:12.5px">当前范围：${state.scope==='all'?'全库':state.scope==='self'?'本节点':'含下级'}</p></div>`;
+      return;
+    }
+    box.innerHTML='';
+    d.results.forEach(r=> box.appendChild(resultCard(r, d.terms)));
+  }catch(e){ box.innerHTML = `<div class="empty">搜索失败：${esc(e.message)}</div>`; }
+}
+
+/* ---------- 挂载对话框 ---------- */
+function mountDialog(docId, title, currentIds){
+  treePicker({
+    title: '设置挂载节点：' + title,
+    hint: '一份文档可以同时挂到多个节点：打勾=挂上，取消勾选=移出。全部取消会回到「未分类」。',
+    multi: true,
+    checked: new Set(currentIds || []),
+    onPick: async ids=>{
+      try{
+        await api('/api/doc/set_nodes',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({doc_id:docId, node_ids:ids})});
+        toast(ids.length ? `已挂到 ${ids.length} 个节点` : '已移回「未分类」');
+        await loadTree();
+        state.query ? doSearch() : loadDocs();
+      }catch(e){ toast('保存失败：'+e.message); }
+    }
+  });
+}
+
+/* ---------- 详情 ---------- */
+async function showChunk(chunkId){
+  const box = $('#detail-body');
+  box.className='';
+  box.innerHTML = '<div class="empty"><span class="spin"></span>载入中…</div>';
+  try{
+    const c = await api('/api/chunk/'+chunkId);
+    const terms = state.query ? state.query.split(/\s+/).filter(Boolean) : [];
+    box.innerHTML = `
+      <div class="d-head">
+        <div class="d-title">${esc(c.doc_title)}</div>
+        <div class="d-sub">${esc(c.heading_path||'')}</div>
+        <div class="d-sub">${esc(c.file_path)}</div>
+      </div>
+      <div class="d-actions">
+        <button class="primary" id="btn-open">打开原文件</button>
+        <button id="btn-copy">复制全文</button>
+      </div>
+      <div class="d-body">${highlight(c.text, terms)}</div>`;
+    $('#btn-open').onclick = ()=>openDoc(c.doc_id);
+    $('#btn-copy').onclick = ()=>{ navigator.clipboard.writeText(c.text); toast('已复制本节全文'); };
+    state.currentDoc = c.doc_id;
+  }catch(e){ box.innerHTML = `<div class="empty">载入失败：${esc(e.message)}</div>`; }
+}
+
+async function deleteDoc(docId, title){
+  if(!confirm(`把《${title}》移入回收站？\n\n· 磁盘上的原文件不会被删除\n· 可以在「回收站 → 文档」里恢复`)) return;
+  try{
+    await api('/api/doc/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({doc_id:docId})});
+    toast('已移入回收站');
+    await loadTree();
+    state.query ? doSearch() : loadDocs();
+  }catch(e){ toast('删除失败：'+e.message); }
+}
+
+async function openDoc(docId){
+  try{
+    const r = await api('/api/open',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({doc_id:docId})});
+    if(r.ok) toast('已打开原文件'); else toast('打开失败：'+r.error);
+  }catch(e){ toast('打开失败：'+e.message); }
+}
+
+/* ---------- 模态 ---------- */
+function showModal(title, bodyHtml, footHtml){
+  $('#modal-title').textContent = title;
+  $('#modal-body').innerHTML = bodyHtml;
+  $('#modal-foot').innerHTML = footHtml;
+  $('#mask').classList.add('show');
+}
+function closeModal(){ $('#mask').classList.remove('show'); }
+$('#mask').onclick = e=>{ if(e.target.id==='mask') closeModal(); };
+
+async function runImport(payload){
+  showModal('导入中…', `<p><span class="spin"></span>正在解析并建立索引，文件多时请稍等片刻…</p>`, '');
+  try{
+    const r = await api('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)});
+    if(r.cancelled){ closeModal(); toast('已取消'); return; }
+    const rows = (r.items||[]).map(it=>{
+      const cls = it.status==='imported'?'ok':it.status==='updated'?'up':it.status==='failed'?'fail':'skip';
+      const label = {imported:'新增',updated:'更新',unchanged:'未变',failed:'失败',skipped:'跳过'}[it.status]||it.status;
+      return `<div class="row"><span class="tag ${cls}">${label}</span>
+        <div><div>${esc(it.title)}</div>
+        <div style="color:#6b7480;font-size:12px">${esc(it.note || (it.chunks?`${it.chunks} 块 · ${it.chars} 字`:'') )}</div></div></div>`;
+    }).join('');
+    showModal('导入结果', `<div class="rep">
+      <p>扫描 ${r.scanned} 个文件：新增 ${r.imported} · 更新 ${r.updated} · 路径更新 ${r.relocated||0} · 未变 ${r.unchanged} · 失败 ${r.failed}</p>
+      ${rows || '<p>没有可导入的文件。</p>'}</div>`,
+      `<button class="primary" onclick="closeModal()">好</button>`);
+    await loadTree(); await loadDocs();
+  }catch(e){
+    showModal('导入失败', `<p style="color:#a02a1e">${esc(e.message)}</p>`,
+      `<button onclick="closeModal()">关闭</button>`);
+  }
+}
+
+function openImport(){
+  showModal('导入 Word 文档', `
+    <div style="display:flex;gap:10px;margin:4px 0 14px">
+      <button class="primary" id="imp-folder" style="flex:1;height:48px;font-size:14px">📁 浏览文件夹…</button>
+      <button id="imp-files" style="flex:1;height:48px;font-size:14px">📄 选择文件…</button>
+    </div>
+    <p class="hint" style="margin-top:0">
+      · 支持格式：<b>.docx / .doc / .pdf / .pptx / .md / .txt / 图片（png·jpg·bmp·tif）</b>；文件夹会递归导入，同内容自动跳过。<br>
+      · <b>.doc</b> 会用本机 Word 自动转换；<b>图片和扫描版 PDF</b> 会用系统 OCR 识别文字（不联网）。<br>
+      · 导入后按节点名称/关键词自动判断挂到哪个节点，判断不明确的进「未分类」。
+    </p>
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;color:var(--sub);font-size:12.5px">或手动粘贴路径</summary>
+      <input type="text" id="imp-path" placeholder="D:\\资料库" style="margin-top:8px">
+      <div style="margin-top:8px"><button id="imp-go">用这个路径导入</button></div>
+    </details>`,
+    `<button onclick="closeModal()">关闭</button>`);
+  $('#imp-folder').onclick = ()=>runImport({mode:'folder'});
+  $('#imp-files').onclick  = ()=>runImport({mode:'files'});
+  $('#imp-go').onclick = ()=>{
+    const p = $('#imp-path').value.trim();
+    if(!p){ toast('请先填路径'); return; }
+    runImport({mode:'path', path:p});
+  };
+  $('#imp-path').onkeydown = e=>{ if(e.key==='Enter') $('#imp-go').click(); };
+}
+
+async function doBackup(){
+  try{
+    const r = await api('/api/backup',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    toast(`备份完成：${r.file.split('\\\\').pop()}（${r.size_kb} KB）`, 3200);
+  }catch(e){ toast('备份失败：'+e.message); }
+}
+
+/* ---------- 设置 / 维护（A1 重建索引、A4 密钥与模型配置） ---------- */
+async function openSettings(){
+  showModal('设置与维护', `
+    <div class="sec">
+      <h4>① 索引维护</h4>
+      <div id="maint-box" class="kv"><span class="spin"></span>检查中…</div>
+      <div class="row" style="margin-top:10px">
+        <button id="btn-check">检查</button>
+        <button class="primary" id="btn-rebuild">重建索引</button>
+      </div>
+      <p class="hint" style="margin-top:6px">改了资料解析/OCR/切块逻辑后，点「重建索引」会自动重新解析落后的文档，不用删了重导。</p>
+    </div>
+    <div class="sec">
+      <h4>② 密钥（DPAPI 加密，不进数据库）</h4>
+      <p class="hint" style="margin:0 0 8px">保存后<b>只能看到掩码，无法查看或复制原文</b>（安全设计）。
+        要更换就重新粘贴一次覆盖保存。这里保存的「键名」要跟 ③ 里填的「引用键名」一致。</p>
+      <div id="secrets-box" class="kv"><span class="spin"></span>载入中…</div>
+      <div class="row" style="margin-top:8px">
+        <input type="text" id="sec-name" placeholder="键名，例如 deepseek">
+        <input type="password" id="sec-value" placeholder="密钥内容（保存后只显示掩码）">
+        <button class="primary" id="btn-save-secret">保存</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h4>③ AI 模型配置</h4>
+      <div class="kv" style="margin-bottom:8px">免费方案快速填充（点一下自动填好，只需再粘密钥）：</div>
+      <div class="row" style="margin-bottom:10px">
+        <button class="mini" data-tpl="zhipu">智谱 GLM-4-Flash（免费）</button>
+        <button class="mini" data-tpl="siliconflow">硅基流动（免费额度）</button>
+        <button class="mini" data-tpl="ollama">本地 Ollama（完全免费）</button>
+      </div>
+      <div id="providers-box" class="kv"><span class="spin"></span>载入中…</div>
+      <div class="row" style="margin-top:8px">
+        <input type="text" id="pv-name" placeholder="配置名">
+        <input type="text" id="pv-url" placeholder="接口地址 https://api.deepseek.com">
+      </div>
+      <div class="row">
+        <input type="text" id="pv-model" placeholder="模型名 deepseek-chat">
+        <input type="text" id="pv-keyref" placeholder="引用密钥的键名（不是密钥本身），如 zhipu">
+      </div>
+      <div class="row">
+        <select id="pv-kind" style="height:32px;border:1px solid var(--line);border-radius:7px">
+          <option value="openai_compatible">OpenAI 兼容（DeepSeek/通义/OpenAI…）</option>
+          <option value="ollama">本地 Ollama（免费）</option>
+        </select>
+        <label class="kv" style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" id="pv-free"> 免费
+        </label>
+        <label class="kv" style="display:flex;align-items:center;gap:4px">
+          <input type="checkbox" id="pv-default"> 设为默认
+        </label>
+      </div>
+      <div class="row">
+        <input type="text" id="pv-pin" placeholder="输入价格 元/百万token（免费留空）">
+        <input type="text" id="pv-pout" placeholder="输出价格 元/百万token">
+      </div>
+      <div class="row">
+        <input type="text" id="pv-note" placeholder="备注（可选）：哪来的、免费额度多少">
+        <button class="primary" id="btn-save-provider">保存</button>
+      </div>
+      <p class="hint" style="margin:6px 0 0">保存后点「测试连接」会真的发一次极小请求，验证密钥/地址/模型是否都通。</p>
+    </div>
+    <div class="sec">
+      <h4>⑤ 本地向量索引（语义检索，免费离线）</h4>
+      <div id="vec-box" class="kv"><span class="spin"></span>检查中…</div>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="btn-vec-build">生成向量索引</button>
+        <button id="btn-vec-clear">清空向量</button>
+      </div>
+      <p class="hint" style="margin-top:6px">用本机小模型（bge-small-zh，22MB）把每段正文编成向量，不联网、不花钱。建好之后搜索会自动变成「关键词 + 语义」混合，换个说法也能找到。</p>
+    </div>
+    <div class="sec">
+      <h4>④ AI 调用记录</h4>
+      <div id="runs-box" class="kv">暂无调用</div>
+    </div>`,
+    `<button onclick="closeModal()">关闭</button>`);
+  await refreshMaintenance();
+  await refreshSecrets();
+  await refreshProviders();
+  await refreshRuns();
+  await refreshVector();
+  $('#btn-vec-build').onclick = buildVectors;
+  $('#btn-vec-clear').onclick = clearVectors;
+  $('#btn-check').onclick = refreshMaintenance;
+  $('#btn-rebuild').onclick = doRebuild;
+  $('#btn-save-secret').onclick = saveSecret;
+  document.querySelectorAll('[data-tpl]').forEach(b=>{
+    b.onclick = ()=>fillProviderTemplate(b.dataset.tpl);
+  });
+  $('#btn-save-provider').onclick = saveProvider;
+}
+
+async function refreshMaintenance(){
+  const box = $('#maint-box');
+  try{
+    const m = await api('/api/maintenance');
+    const outdated = m.outdated_documents || 0;
+    const low = m.low_quality_documents || 0;
+    box.innerHTML = `
+      解析管线版本：<b>v${m.parse_version}</b>
+      <span class="tagline ${outdated?'warn':'ok'}">${outdated ? outdated+' 份待重建' : '索引已是最新'}</span><br>
+      识别质量偏低：<b>${low}</b> 份${low?'（搜索里会降权，结果上会标红）':''}<br>
+      密钥文件：${m.secrets && m.secrets.exists ? '已存在，'+m.secrets.count+' 个' : '尚未创建'}<br>
+      引用契约：${(m.citations_contract.fields||[]).join(' / ')}`;
+  }catch(e){ box.innerHTML = `<span style="color:#a02a1e">检查失败：${esc(e.message)}</span>`; }
+}
+
+async function doRebuild(){
+  const b = $('#btn-rebuild');
+  b.disabled = true; b.textContent = '重建中…';
+  try{
+    const r = await api('/api/rebuild',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({})});
+    toast(`重建完成：成功 ${r.rebuilt}，失败 ${r.failed}，缺源文件 ${r.missing}`, 4000);
+    await refreshMaintenance(); await loadTree();
+    state.query ? doSearch() : loadDocs();
+  }catch(e){ toast('重建失败：'+e.message); }
+  finally{ b.disabled = false; b.textContent = '重建索引'; }
+}
+
+async function refreshSecrets(){
+  const box = $('#secrets-box');
+  try{
+    const d = await api('/api/secrets');
+    if(!d.names.length){ box.innerHTML = '还没有保存任何密钥。'; return; }
+    box.innerHTML = d.names.map(n=>`<div class="row">
+        <span style="flex:1">${esc(n)} = <code style="user-select:none">${esc(d.masked[n]||'')}</code>
+          <span class="kv">（掩码，不可复制）</span></span>
+        <button class="mini" data-rewrite="${esc(n)}">改写</button>
+        <button class="danger" data-del="${esc(n)}">删除</button></div>`).join('');
+    box.querySelectorAll('[data-rewrite]').forEach(b=>{
+      b.onclick = ()=>{
+        $('#sec-name').value = b.dataset.rewrite;
+        $('#sec-value').value = '';
+        $('#sec-value').focus();
+        toast('把新的密钥粘贴到下方输入框，点保存即可覆盖');
+      };
+    });
+    box.querySelectorAll('[data-del]').forEach(b=>{
+      b.onclick = async ()=>{
+        if(!confirm('删除密钥「'+b.dataset.del+'」？')) return;
+        await api('/api/secrets',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({delete:b.dataset.del})});
+        toast('已删除'); refreshSecrets();
+      };
+    });
+  }catch(e){ box.innerHTML = `<span style="color:#a02a1e">载入失败：${esc(e.message)}</span>`; }
+}
+
+async function saveSecret(){
+  const name = $('#sec-name').value.trim();
+  const value = $('#sec-value').value;
+  if(!name || !value){ toast('请填写键名和密钥'); return; }
+  try{
+    await api('/api/secrets',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name, value})});
+    $('#sec-value').value = '';
+    toast('已加密保存');
+    await refreshSecrets(); await refreshMaintenance();
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+
+/* 免费模型模板：点一下把表单填好，用户只需补密钥 */
+const PROVIDER_TPL = {
+  zhipu: {
+    name: 'glm-flash',
+    base_url: 'https://open.bigmodel.cn/api/paas/v4',
+    model: 'glm-4-flash',
+    key_ref: 'zhipu',
+    kind: 'openai_compatible',
+    free: true,
+    price_in: 0, price_out: 0,
+    note: '智谱 GLM-4-Flash，注册即免费（bigmodel.cn）',
+  },
+  siliconflow: {
+    name: 'siliconflow',
+    base_url: 'https://api.siliconflow.cn/v1',
+    model: 'Qwen/Qwen2.5-7B-Instruct',
+    key_ref: 'siliconflow',
+    kind: 'openai_compatible',
+    free: true,
+    price_in: 0, price_out: 0,
+    note: '硅基流动免费额度模型（siliconflow.cn）',
+  },
+  ollama: {
+    name: 'ollama-local',
+    base_url: 'http://127.0.0.1:11434',
+    model: 'qwen2.5:3b',
+    key_ref: '',
+    kind: 'ollama',
+    free: true,
+    price_in: 0, price_out: 0,
+    note: '本地 Ollama，完全免费离线；先 ollama pull qwen2.5:3b',
+  },
+};
+
+function fillProviderTemplate(kind){
+  const t = PROVIDER_TPL[kind];
+  if(!t || !$('#pv-name')) return;
+  $('#pv-name').value = t.name;
+  $('#pv-url').value = t.base_url;
+  $('#pv-model').value = t.model;
+  $('#pv-keyref').value = t.key_ref;
+  const kindSel = $('#pv-kind');
+  if(kindSel) kindSel.value = t.kind;
+  const freeBox = $('#pv-free'); if(freeBox) freeBox.checked = !!t.free;
+  const pin = $('#pv-pin'); if(pin) pin.value = '';
+  const pout = $('#pv-pout'); if(pout) pout.value = '';
+  const note = $('#pv-note'); if(note) note.value = t.note || '';
+  if(t.key_ref){
+    $('#sec-name').value = t.key_ref;
+    $('#sec-value').value = '';
+    toast('已填好配置。请到上方「② 密钥」粘贴 Key（键名 ' + t.key_ref + '）保存，再回来点测试连接', 6000);
+    $('#sec-value').focus();
+  }else{
+    toast('已填好「' + t.name + '」（本地模型不需要密钥），点保存即可', 5000);
+  }
+}
+
+async function refreshProviders(){
+  const box = $('#providers-box');
+  if(!box) return;                 // 设置面板没打开时不需要刷新，避免报错
+  try{
+    const d = await api('/api/ai/providers');
+    if(!d.items.length){ box.innerHTML = '还没有配置模型。'; return; }
+    box.innerHTML = d.items.map(p=>{
+      const badge = p.free
+        ? '<span class="tagline ok">免费</span>'
+        : `<span class="tagline warn">付费</span>`;
+      const star = p.is_default ? '<span class="tagline" style="background:#eaf1f8;color:#1f4e79">当前默认</span>' : '';
+      const off = p.enabled ? '' : '<span class="tagline warn">已停用</span>';
+      const noKey = (p.key_ok === 0 && p.kind !== 'ollama')
+        ? '<span class="tagline warn" title="引用的密钥还没保存">⚠️ 密钥未保存</span>' : '';
+      return `<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #eef2f7">
+        <b>${esc(p.name)}</b> ${badge} ${star} ${off} ${noKey}
+        <div class="kv">${esc(p.kind)} · ${esc(p.model||'未填模型')} · ${esc(p.base_url||'')}
+          · 密钥 <code>${esc(p.key_ref||'无')}</code></div>
+        <div class="kv">${esc(p.cost_hint||'')}${p.note?'　·　'+esc(p.note):''}</div>
+        <div class="row" style="margin-top:5px">
+          <button class="mini" data-test="${esc(p.name)}">测试连接</button>
+          <button class="mini" data-default="${esc(p.name)}" ${p.is_default?'disabled':''}>设为默认</button>
+          <button class="mini" data-toggle="${esc(p.name)}" data-enabled="${p.enabled?1:0}">${p.enabled?'停用':'启用'}</button>
+          <button class="mini danger" data-del="${esc(p.name)}">删除</button>
+        </div>
+        <div class="kv" data-result="${esc(p.name)}" style="margin-top:4px"></div>
+      </div>`;
+    }).join('');
+    box.querySelectorAll('[data-test]').forEach(b=> b.onclick = ()=>testProvider(b.dataset.test, b));
+    box.querySelectorAll('[data-default]').forEach(b=>{
+      b.onclick = async ()=>{
+        try{
+          await api('/api/ai/providers/default',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({name:b.dataset.default})});
+          toast('已设为默认模型'); await refreshProviders(); await refreshModelPicker();
+        }catch(e){ toast('失败：'+e.message); }
+      };
+    });
+    box.querySelectorAll('[data-toggle]').forEach(b=>{
+      b.onclick = async ()=>{
+        try{
+          await api('/api/ai/providers/toggle',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({name:b.dataset.toggle, enabled: b.dataset.enabled!=='1'})});
+          await refreshProviders(); await refreshModelPicker();
+        }catch(e){ toast('失败：'+e.message); }
+      };
+    });
+    box.querySelectorAll('[data-del]').forEach(b=>{
+      b.onclick = async ()=>{
+        if(!confirm('删除模型配置「'+b.dataset.del+'」？（密钥文件里的内容不会被删）')) return;
+        try{
+          await api('/api/ai/providers/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({name:b.dataset.del})});
+          toast('已删除'); await refreshProviders(); await refreshModelPicker();
+        }catch(e){ toast('失败：'+e.message); }
+      };
+    });
+  }catch(e){ box.innerHTML = `<span style="color:#a02a1e">载入失败：${esc(e.message)}</span>`; }
+}
+
+async function testProvider(name, btn){
+  const out = document.querySelector(`[data-result="${name}"]`);
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = '测试中…';
+  if(out) out.innerHTML = '<span class="spin"></span>正在请求模型（最多 30 秒）…';
+  try{
+    const r = await api('/api/ai/test',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name})});
+    if(r.ok){
+      toast('连接成功');
+      if(out) out.innerHTML = `<span style="color:#2e7d4f">✅ 连接成功</span> · ${esc(r.model||'')} · ${r.latency_ms}ms`
+        + (r.tokens ? ` · tokens ${r.tokens.tokens_in}/${r.tokens.tokens_out}` : '')
+        + ` · 回复「${esc(r.reply||'')}」`;
+    }else{
+      if(out) out.innerHTML = `<span style="color:#a02a1e">❌ ${esc(r.error||'失败')}</span>`;
+    }
+    await refreshRuns();
+  }catch(e){
+    if(out) out.innerHTML = `<span style="color:#a02a1e">❌ ${esc(e.message)}</span>`;
+  }finally{ btn.disabled = false; btn.textContent = old; }
+}
+
+async function refreshRuns(){
+  const box = $('#runs-box');
+  if(!box) return;
+  try{
+    const d = await api('/api/ai/runs');
+    const sm = d.summary || {};
+    const head = `累计 ${sm.calls||0} 次 · 失败 ${sm.failed||0} 次 · tokens 入 ${sm.tokens_in||0} / 出 ${sm.tokens_out||0}`;
+    const rows = (d.items||[]).slice(0,10).map(r=>{
+      const cls = r.ok ? 'ok' : 'warn';
+      return `<div>${r.ok?'✅':'❌'} <span class="tagline ${cls}">${esc(r.task_type)}</span> `
+        + `${esc(r.provider||'')}/${esc(r.model||'')} · ${r.latency_ms}ms · ${r.tokens_in}/${r.tokens_out}`
+        + (r.error ? ` · <span style="color:#a02a1e">${esc(r.error.slice(0,60))}</span>` : '') + `</div>`;
+    }).join('');
+    box.innerHTML = `<div style="margin-bottom:6px">${head}</div>` + (rows || '<div>暂无调用</div>');
+  }catch(e){ box.innerHTML = `<span style="color:#a02a1e">载入失败：${esc(e.message)}</span>`; }
+}
+
+async function saveProvider(){
+  const payload = {
+    name: $('#pv-name').value.trim(),
+    base_url: $('#pv-url').value.trim(),
+    model: $('#pv-model').value.trim(),
+    key_ref: $('#pv-keyref').value.trim(),
+    kind: $('#pv-kind').value,
+    free: $('#pv-free').checked,
+    is_default: $('#pv-default').checked,
+    price_in: parseFloat($('#pv-pin').value) || 0,
+    price_out: parseFloat($('#pv-pout').value) || 0,
+    note: $('#pv-note').value.trim(),
+  };
+  if(!payload.name){ toast('请填写配置名'); return; }
+  try{
+    await api('/api/ai/providers',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)});
+    toast('已保存模型配置');
+    await refreshProviders(); await refreshModelPicker();
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+
+/* ---------- 本地向量索引 ---------- */
+async function refreshVector(){
+  const box = $('#vec-box');
+  if(!box) return;
+  try{
+    const d = await api('/api/ai/embed');
+    const m = d.model || {};
+    if(!m.ok){
+      box.innerHTML = `<span style="color:#a02a1e">当前运行环境没有内置本地向量模型</span>`
+        + `<div class="kv" style="margin-top:4px">原因：${esc(m.error||'缺少本地推理依赖（onnxruntime）')}`
+        + `<br>说明：打包版为保证体积没有内置本地推理库；<b>源码版（start.bat）可以用语义检索</b>。
+           <br>关键词检索不受影响，照常可用。</div>`;
+      return;
+    }
+    const pct = d.total_chunks ? Math.round(d.indexed_chunks*100/d.total_chunks) : 0;
+    box.innerHTML = `模型：<b>${esc(m.name)}</b>（${m.dim} 维，本地免费）`
+      + `<span class="tagline ${d.missing?'warn':'ok'}">${d.indexed_chunks}/${d.total_chunks} 已索引（${pct}%）</span>`
+      + `<br>sqlite-vec：${d.sqlite_vec?'可用':'不可用'}`
+      + (d.missing ? `<br>还有 <b>${d.missing}</b> 段正文没有向量，点下面按钮补全（307 段约 11 秒）` : '');
+  }catch(e){ box.innerHTML = `<span style="color:#a02a1e">检查失败：${esc(e.message)}</span>`; }
+}
+
+async function buildVectors(){
+  const b = $('#btn-vec-build');
+  const old = b.textContent;
+  b.disabled = true; b.textContent = '生成中…';
+  try{
+    const r = await api('/api/ai/embed/index',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({})});
+    if(r.ok){ toast(`向量索引完成：新增 ${r.added}，失败 ${r.failed}`, 4000); }
+    else toast('失败：'+(r.error||'未知错误'));
+    await refreshVector();
+  }catch(e){ toast('生成失败：'+e.message); }
+  finally{ b.disabled = false; b.textContent = old; }
+}
+
+async function clearVectors(){
+  if(!confirm('清空所有向量？语义检索会暂时关闭（可随时重新生成）。')) return;
+  try{
+    await api('/api/ai/embed/clear',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    toast('已清空'); await refreshVector();
+  }catch(e){ toast('清空失败：'+e.message); }
+}
+
+/* ---------- 顶部模型选择器 ---------- */
+async function refreshModelPicker(){
+  const sel = $('#model-pick');
+  if(!sel) return;
+  try{
+    const d = await api('/api/ai/providers');
+    const items = d.items || [];
+    if(!items.length){
+      sel.innerHTML = '<option value="">（未配置模型）</option>';
+      return;
+    }
+    const cur = items.find(x=>x.is_default) || items[0];
+    const lbl = document.querySelector('#ai-cur');
+    if(lbl && cur) lbl.textContent = '当前模型：' + cur.name + (cur.free ? '（免费）' : '（付费）');
+    sel.innerHTML = items.map(p=>{
+      const tag = p.free ? '免费' : '付费';
+      const star = p.is_default ? '★ ' : '';
+      return `<option value="${esc(p.name)}" ${p.is_default?'selected':''}>
+        ${star}${esc(p.name)} · ${tag}</option>`;
+    }).join('');
+    sel.onchange = async ()=>{
+      const want = sel.value;
+      try{
+        const r = await api('/api/ai/providers/default',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({name: want})});
+        const now = (r && r.current) || want;
+        toast('已切换模型：' + now);
+        try{ await refreshModelPicker(); }catch(e){}   // 刷新 ★ 默认标记
+        try{ await refreshProviders(); }catch(e){}     // 设置面板若未打开会跳过
+      }catch(e){
+        toast('切换失败：'+e.message, 5000);
+        try{ await refreshModelPicker(); }catch(_e){}   // 失败则回滚到实际默认
+      }
+    };
+  }catch(e){ sel.innerHTML = '<option value="">模型配置读取失败</option>'; }
+}
+
+/* ---------- 问 AI（RAG 单次问答） ---------- */
+let qaConvId = null;   // 当前追问会话 id（null = 新开）
+/* ---------- 会话历史 ---------- */
+async function refreshConvList(){
+  const panel = $('#qa-hist-panel');
+  if(!panel) return;
+  try{
+    const d = await api('/api/conv/list');
+    const items = (d.items || []).filter(x => x.turns > 0);
+    if(!items.length){ panel.innerHTML = '<div class="qa-hist-item">还没有会话记录</div>'; return; }
+    panel.innerHTML = items.slice(0, 50).map(x=>{
+      const star = x.pinned ? '📌' : '';
+      const fav = x.favorite ? '❤️' : '';
+      const tags = (x.tags||'').split(',').filter(Boolean).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+      const active = (x.id === qaConvId) ? ' active' : '';
+      return `<div class="qa-hist-item${active}" data-cid="${x.id}">
+        <input type="checkbox" class="conv-pick" data-cid="${x.id}" title="勾选后合并导出"
+               style="margin:0 2px 0 0">
+        <span style="width:22px">${star}${fav}</span>
+        <span class="t" title="${esc(x.title||'')}">${esc(x.title||'未命名')}</span>
+        <span class="kv">${x.turns}轮</span>${tags}
+        <button data-act="pin"  title="顶置">📌</button>
+        <button data-act="fav"  title="收藏">❤️</button>
+        <button data-act="tag"  title="标签">🏷️</button>
+        <button data-act="exp"  title="导出 Word 笔记">⤓</button>
+        <button data-act="del"  title="删除">🗑️</button>
+      </div>`;
+    }).join('');
+    panel.querySelectorAll('.qa-hist-item').forEach(el=>{
+      const cid = Number(el.dataset.cid);
+      const pk = el.querySelector('.conv-pick');
+      if(pk) pk.onclick = (ev)=> ev.stopPropagation();
+      el.querySelector('.t').onclick = ()=>loadConversation(cid);
+      el.querySelectorAll('button').forEach(b=>{
+        b.onclick = async (ev)=>{
+          ev.stopPropagation();
+          const act = b.dataset.act;
+          if(act === 'exp'){
+            toast('正在导出…');
+            try{
+              const snip = $('#qa-snippet') && $('#qa-snippet').checked;
+              const r = await api('/api/conv/export',{method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({id:cid, snippet: !!snip, open:true})});
+              if(!r.ok){ toast('导出失败：' + (r.error||'未知')); return; }
+              toast(`已导出「${r.title}」：${r.questions} 个问答 / ${r.citations} 条来源`);
+            }catch(e){ toast('导出失败：' + e.message, 5000); }
+            return;
+          }
+          if(act === 'del'){
+            if(!confirm('删除这个会话？')) return;
+            await api('/api/conv/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({id:cid})});
+            if(qaConvId === cid) qaConvId = null;
+            await refreshConvList(); toast('已删除');
+          }else if(act === 'tag'){
+            const t = prompt('标签（逗号分隔）', '');
+            if(t === null) return;
+            await api('/api/conv/update',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({id:cid, tags:t})});
+            await refreshConvList();
+          }else{
+            const field = act === 'pin' ? 'pinned' : 'favorite';
+            const cur = el.querySelector('span').textContent.includes(act === 'pin' ? '📌' : '❤️');
+            await api('/api/conv/update',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({id:cid, [field]: !cur})});
+            await refreshConvList();
+          }
+        };
+      });
+    });
+  }catch(e){ panel.innerHTML = `<div class="qa-hist-item">读取失败：${esc(e.message)}</div>`; }
+}
+
+async function loadConversation(cid){
+  try{
+    const d = await api('/api/conv/detail/' + cid);
+    if(!d.ok){ toast(d.error || '读取失败'); return; }
+    qaConvId = cid;
+    const box = $('#qa-answer');
+    box.style.display = 'block';
+    const html = (d.messages || []).map((m, i)=>{
+      const isAI = m.role !== 'user';
+      const who = isAI ? '🤖 AI' : '🧑 你';
+      const txt = esc(m.content || '').replace(/\n/g,'<br>')
+        .replace(/\[(\d+)\]/g,'<b style="color:#1f4e79">[$1]</b>');
+      // 长回答默认折叠，带「展开全文 / 收起」
+      const long = isAI && (m.content || '').length > 220;
+      const btn = long ? `<button class="mini qa-fold-btn" data-fold="${i}">展开全文 ▾</button>` : '';
+      const bodyCls = long ? 'qa-msg-body folded' : 'qa-msg-body';
+      const cites = (m.citations || []);
+      const citeHtml = cites.length ? ('<h5 style="margin:6px 0 2px">来源</h5>' + cites.map((c, k)=>{
+        const label = '[' + (c.index || (k+1)) + '] ' + (c.doc_title || '')
+          + (c.heading_path ? ' › ' + c.heading_path : '');
+        const chunk = c.chunk_id ? ` data-chunk="${c.chunk_id}"` : '';
+        const drift = c.drifted ? ' ⚠️已变动' : '';
+        return `<button class="qa-src qa-cite"${chunk} title="${esc(c.snippet || '')}">${esc(label)}${drift}</button>`;
+      }).join('')) : '';
+      const pick = isAI ? `<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer">
+          <input type="checkbox" class="qa-pick" data-mid="${m.id}" checked> 选</label>` : '';
+      return `<div class="qa-msg" data-mid="${m.id}">
+        <div class="qa-msg-h"><span>${who}</span>${pick}${btn}</div>
+        <div class="${bodyCls}" data-body="${i}">${txt}</div>
+        ${isAI ? citeHtml : ''}
+      </div>`;
+    }).join('<hr style="border:none;border-top:1px dashed #dde5ee;margin:6px 0">');
+    box.innerHTML = html || '（空会话）';
+    box.querySelectorAll('.qa-cite[data-chunk]').forEach(b=>{
+      b.onclick = ()=>{ const cid = Number(b.dataset.chunk); if(cid) showChunk(cid); };
+    });
+    box.querySelectorAll('[data-fold]').forEach(b=>{
+      b.onclick = ()=>{
+        const body = box.querySelector(`[data-body="${b.dataset.fold}"]`);
+        if(!body) return;
+        const folded = body.classList.toggle('folded');
+        b.textContent = folded ? '展开全文 ▾' : '收起 ▴';
+      };
+    });
+    const bar = $('#qa-export-bar');
+    if(bar) bar.style.display = 'flex';
+    bindPickBar();
+    $('#qa-meta').textContent = '已载入会话 #' + cid + ' · 继续提问会接着上文';
+    await refreshConvList();
+    box.scrollTop = box.scrollHeight;
+  }catch(e){ toast('载入失败：' + e.message); }
+}
+
+/* ---------- 可拖拽：加宽 AI 区 ---------- */
+function initSplitter(){
+  const main = $('#main'), detail = $('#detail');
+  if(!main || !detail) return;
+
+  // 清掉旧版本残留：若曾插入过 #splitter，先移除（它破坏了 grid 布局）
+  const stale = $('#splitter');
+  if(stale) stale.remove();
+  detail.style.flex = '';           // 旧版本设置的 flex 在 grid 下无效，清掉
+
+  // 拖拽把手：绝对定位在 #detail 左边缘，不参与 grid 布局
+  let handle = $('#detail-handle');
+  if(!handle){
+    handle = document.createElement('div');
+    handle.id = 'detail-handle';
+    detail.appendChild(handle);
+  }
+  detail.style.position = 'relative';
+
+  const MIN_W = 300, MAX_W = 760;
+  const cols = (w)=> `272px minmax(320px,1fr) ${w}px`;
+
+  // 恢复上次宽度
+  let saved = parseInt(localStorage.getItem('doclib_detail_w') || '', 10);
+  if(!Number.isFinite(saved) || saved < MIN_W || saved > MAX_W){
+    localStorage.removeItem('doclib_detail_w');
+    saved = 400;
+  }
+  if(!main.classList.contains('narrow')) main.style.gridTemplateColumns = cols(saved);
+
+  let dragging = false;
+  handle.onmousedown = (e)=>{ dragging = true; document.body.style.cursor='col-resize'; e.preventDefault(); };
+  window.addEventListener('mousemove', (e)=>{
+    if(!dragging) return;
+    if(main.classList.contains('narrow')) return;   // 窄屏（<1150）AI 区是抽屉，不拖
+    const w = Math.round(Math.max(MIN_W, Math.min(MAX_W, window.innerWidth - e.clientX)));
+    main.style.gridTemplateColumns = cols(w);
+  });
+  window.addEventListener('mouseup', ()=>{
+    if(!dragging) return;
+    dragging = false; document.body.style.cursor='';
+    const m = /([0-9]+)px$/.exec(main.style.gridTemplateColumns || '');
+    if(m) localStorage.setItem('doclib_detail_w', m[1]);
+  });
+}
+
+async function askAI(){
+  const q = $('#qa-q').value.trim();
+  if(!q){ toast('先输入问题'); return; }
+  const btn = $('#qa-go'), box = $('#qa-answer');
+  if(!btn || !box) return;
+  btn.disabled = true; btn.textContent = '思考中…';
+  box.style.display = 'block';
+  box.innerHTML = '<span class="spin"></span>检索资料并生成回答（检索约 10ms，模型 1–3 秒）…';
+  $('#qa-meta').textContent = '';
+  try{
+    const follow = $('#qa-follow') && $('#qa-follow').checked;
+    const r = await api('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        question: q,
+        node: state.nodeId || null,
+        scope: $('#scope').value,
+        conversation_id: (follow && qaConvId) ? qaConvId : null,
+      })});
+    if(!r.ok){
+      box.innerHTML = `<span style="color:#a02a1e">❌ ${esc(r.error||'失败')}</span>`;
+      return;
+    }
+    const us = r.usage || {};
+    $('#qa-meta').textContent = [
+      r.model || '',
+      r.mode ? ('检索 ' + r.mode) : '',
+      r.cached ? '缓存命中（0 token）' : ((us.tokens_in||0) + '→' + (us.tokens_out||0) + ' tokens'),
+      r.cached ? '' : (Number(r.cost_yuan||0) > 0 ? ('≈' + r.cost_yuan + ' 元') : '免费'),
+      (r.latency_ms ? r.latency_ms + 'ms' : ''),
+    ].filter(Boolean).join(' · ');
+
+    if(r.conversation_id && follow){ qaConvId = r.conversation_id; }
+    else if(!follow){ qaConvId = null; }
+
+    const txt = esc(r.answer || '').replace(/\n/g,'<br>')
+      .replace(/\[(\d+)\]/g,'<b style="color:#1f4e79">[$1]</b>');
+    const srcs = (r.sources || []).map((x,i)=>`
+      <button class="qa-src" data-idx="${i}" data-chunk="${x.chunk_id||''}">
+        <b>[${x.index}]</b> ${esc(x.title)}${x.heading_path ? ' › ' + esc(x.heading_path) : ''}
+      </button>`).join('');
+    box.innerHTML = `<div>${txt}</div>` + (srcs ? `<h5>来源（点击预览）</h5>${srcs}` : '');
+    box.querySelectorAll('.qa-src').forEach(b=>{
+      b.onclick = ()=>{ const cid = b.dataset.chunk; if(cid) showChunk(Number(cid)); };
+    });
+    refreshConvList();
+  }catch(e){
+    box.innerHTML = `<span style="color:#a02a1e">❌ ${esc(e.message)}</span>`;
+  }finally{
+    btn.disabled = false; btn.textContent = '提问';
+  }
+}
+
+/* ---------- 事件 ---------- */
+$('#btn-search').onclick = doSearch;
+$('#q').onkeydown = e=>{ if(e.key==='Enter') doSearch(); };
+$('#btn-clear').onclick = ()=>{ $('#q').value=''; state.query=''; loadDocs(); };
+$('#scope').onchange = e=>{ state.scope = e.target.value; state.query? doSearch(): loadDocs(); };
+$('#btn-import').onclick = openImport;
+$('#btn-recycle').onclick = openRecycle;
+$('#btn-backup').onclick = doBackup;
+$('#btn-settings').onclick = openSettings;
+$('#btn-map').onclick = ()=>{ location.href = '/mindmap.html'; };
+$('#qa-go').onclick = askAI;
+function pickedMsgIds(){
+  const box = $('#qa-answer');
+  if(!box) return [];
+  return Array.from(box.querySelectorAll('.qa-pick:checked')).map(x=>Number(x.dataset.mid)).filter(Boolean);
+}
+function updatePickBar(){
+  const box = $('#qa-answer');
+  if(!box) return;
+  const all = box.querySelectorAll('.qa-pick');
+  const picked = box.querySelectorAll('.qa-pick:checked');
+  const allBox = $('#qa-pick-all');
+  if(allBox) allBox.checked = all.length > 0 && picked.length === all.length;
+  const cnt = $('#qa-pick-count');
+  if(cnt) cnt.textContent = all.length ? `已选 ${picked.length}/${all.length}` : '';
+}
+function bindPickBar(){
+  const box = $('#qa-answer');
+  if(!box) return;
+  box.querySelectorAll('.qa-pick').forEach(x=>{ x.onchange = updatePickBar; });
+  const allBox = $('#qa-pick-all');
+  if(allBox) allBox.onchange = ()=>{
+    box.querySelectorAll('.qa-pick').forEach(x=>{ x.checked = allBox.checked; });
+    updatePickBar();
+  };
+  updatePickBar();
+}
+async function exportWord(ids){
+  const snip = $('#qa-snippet') && $('#qa-snippet').checked;
+  const mode = ($('#qa-export-mode') && $('#qa-export-mode').value) || 'qa';
+  toast('正在导出…');
+  try{
+    const r = await api('/api/conv/export',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:qaConvId, ids: ids && ids.length ? ids : null,
+                           snippet: !!snip, mode: mode, open:true})});
+    if(!r.ok){ toast('导出失败：' + (r.error||'未知')); return; }
+    toast(`已导出「${r.title}」：${r.questions} 个问答 / ${r.citations} 条来源`
+          + (r.snippet ? '（含摘录）' : ''));
+  }catch(e){ toast('导出失败：' + e.message, 5000); }
+}
+$('#qa-export-batch').onclick = async ()=>{
+  const ids = Array.from(document.querySelectorAll('#qa-hist-panel .conv-pick:checked'))
+    .map(x=>Number(x.dataset.cid)).filter(Boolean);
+  if(!ids.length){ toast('先在「历史」里勾选要合并的会话（可多选）'); return; }
+  const mode = ($('#qa-export-mode') && $('#qa-export-mode').value) || 'outline';
+  const snip = $('#qa-snippet') && $('#qa-snippet').checked;
+  toast('正在合并导出…');
+  try{
+    const r = await api('/api/conv/export_batch',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ids: ids, snippet: !!snip, mode: mode, open:true})});
+    if(!r.ok){ toast('合并导出失败：' + (r.error||'未知')); return; }
+    toast(`已合并 ${r.chapters} 个会话 / ${r.questions} 个问答 → ${r.name}`);
+  }catch(e){ toast('合并导出失败：' + e.message, 5000); }
+};
+$('#qa-export-sel').onclick = async ()=>{
+  if(!qaConvId){ toast('先提问一次，或从「历史」里选一个会话'); return; }
+  const ids = pickedMsgIds();
+  if(!ids.length){ toast('先勾选要导出的问答（或点「全选」）'); return; }
+  await exportWord(ids);
+};
+$('#qa-export').onclick = async ()=>{
+  if(!qaConvId){ toast('先提问一次，或从「历史」里选一个会话'); return; }
+  await exportWord(null);
+};
+$('#qa-hist').onclick = async ()=>{
+  const p = $('#qa-hist-panel');
+  if(p.style.display === 'none'){ p.style.display = 'block'; await refreshConvList(); }
+  else p.style.display = 'none';
+};
+initSplitter();
+$('#qa-new').onclick = ()=>{
+  qaConvId = null;
+  const box = $('#qa-answer'); if(box){ box.style.display='none'; box.innerHTML=''; }
+  $('#qa-meta').textContent = '';
+  $('#qa-q').value = '';
+  toast('已新建对话，下一个问题将单独成篇');
+  $('#qa-q').focus();
+};
+$('#qa-q').addEventListener('keydown', e=>{
+  if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); askAI(); }
+});
+$('#btn-add-root').onclick = async ()=>{
+  const name = prompt('新建顶层节点名称：');
+  if(!name) return;
+  await api('/api/node/create',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name})});
+  toast('已新建'); loadTree();
+};
+
+async function boot(){
+  if(window.innerWidth < 1150) $('#main').classList.add('narrow');
+  window.onresize = ()=> $('#main').classList.toggle('narrow', window.innerWidth<1150);
+
+  const p = new URLSearchParams(location.search);
+  const q = p.get('q'), node = p.get('node'), chunk = p.get('chunk');
+  const conv = p.get('conv');   // 深链：/ ?conv=30 直接打开某个会话
+
+  await loadTree();
+  await refreshModelPicker();
+  const nid = node ? Number(node) : (state.tree.length ? state.tree[0].id : null);
+  if(nid) await selectNode(nid); else await loadDocs();
+  if(conv) { try{ await loadConversation(Number(conv)); }catch(e){} }
+  if(q){ $('#q').value = q; await doSearch(); }
+  if(chunk) await showChunk(Number(chunk));
+  const ask = p.get('ask');
+  if(ask){ $('#qa-q').value = ask; await askAI(); }
+  if(p.get('settings')) await openSettings();
+}
+boot();
+</script>
+</body>
+</html>

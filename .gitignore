@@ -1,0 +1,35 @@
+# 运行时数据（绝不提交）
+data/
+backups/
+exports/
+mindmaps/
+converted/
+runtime.json
+secrets*
+*.db
+*.db-*
+*.sqlite*
+
+# 构建产物
+dist/
+build/
+_internal/
+*.spec.bak
+*.exe
+*.pyd
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*
+*.tmp
+*.log

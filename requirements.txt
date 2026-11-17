@@ -1,0 +1,27 @@
+# 核心（源码运行必需）
+pypdf>=4
+pypdfium2>=4
+chardet>=5
+pillow>=10
+
+# Windows OCR（可选：扫描版 PDF / 图片）
+winrt-runtime>=2
+winrt-Windows.Media.Ocr
+winrt-Windows.Graphics.Imaging
+winrt-Windows.Storage
+winrt-Windows.Storage.Streams
+winrt-Windows.Globalization
+winrt-Windows.Foundation
+
+# 原生窗口（可选：--window）
+pywebview>=5
+pythonnet>=3
+
+# 语义检索（可选：仅源码版）
+# onnxruntime>=1.17
+# tokenizers>=0.15
+# numpy>=1.26
+# sqlite-vec>=0.1
+
+# 打包（可选）
+# pyinstaller>=6

@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocLib · 知识导图</title>
+<style>
+:root{
+  --ink:#242a33; --sub:#6b7480; --line:#e2e8f0; --line2:#eef2f7;
+  --accent:#1f4e79; --accent2:#2e6da4; --accent-soft:#eaf1f8;
+  --bg:#f5f7fa; --panel:#fff; --ok:#2e7d4f; --warn:#b06a12; --danger:#a02a1e;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:"Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+  color:var(--ink);background:var(--bg);font-size:14px;display:flex;flex-direction:column;overflow:hidden}
+
+header{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--line);
+  padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;z-index:5;
+  box-shadow:0 1px 3px rgba(31,78,121,.05)}
+.brand{font-weight:700;color:var(--accent);font-size:15px;margin-right:4px}
+select,button{height:32px;padding:0 10px;border:1px solid var(--line);border-radius:7px;
+  background:#fbfcfe;color:var(--ink);font-size:13px;font-family:inherit;cursor:pointer;outline:none}
+button:hover{border-color:var(--accent2);color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent2);color:#fff}
+button.danger:hover{border-color:var(--danger);color:var(--danger)}
+.spacer{flex:1}
+#status{font-size:12px;color:var(--sub)}
+#status.dirty{color:var(--warn)}
+#status.saved{color:var(--ok)}
+
+main{flex:1 1 auto;display:grid;grid-template-columns:30% 6px 70%;min-height:0}
+#left{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+#splitter{cursor:col-resize;background:#eef2f7}
+#splitter:hover{background:var(--accent2)}
+
+.tools{padding:8px 10px;border-bottom:1px solid var(--line2);display:flex;flex-wrap:wrap;gap:6px}
+.tool{display:flex;align-items:center;gap:4px;padding:5px 9px;border:1px solid var(--line);
+  border-radius:7px;background:#fbfcfe;cursor:pointer;font-size:12.5px;user-select:none;white-space:nowrap}
+.tool:hover{border-color:var(--accent2);color:var(--accent)}
+.tool.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.swatches{display:flex;gap:4px;padding:6px 10px;border-bottom:1px solid var(--line2);align-items:center;flex-wrap:wrap}
+.sw{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.15);cursor:pointer}
+.sw.active{outline:2px solid var(--accent);outline-offset:1px}
+.swatches input[type=color]{width:26px;height:22px;border:none;background:none;padding:0;cursor:pointer}
+.hint{padding:6px 10px;font-size:11.5px;color:var(--sub);line-height:1.5;border-bottom:1px solid var(--line2)}
+
+#tree{padding:8px 6px 30px;overflow:auto;flex:1 1 auto}
+.tnode{display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:6px;
+  cursor:grab;font-size:13px;user-select:none;white-space:nowrap;overflow:hidden}
+.tnode:hover{background:var(--accent-soft)}
+.tnode .caret{width:14px;text-align:center;color:var(--sub);font-size:10px;flex:0 0 14px}
+.tnode .nm{flex:1;overflow:hidden;text-overflow:ellipsis}
+.tnode .cnt{font-size:11px;color:var(--sub);background:#eef2f7;border-radius:9px;padding:0 6px}
+.tnode.root{font-weight:700;color:var(--accent)}
+
+#right{position:relative;overflow:hidden;background:#fafcfe}
+#cv{width:100%;height:100%;display:block;cursor:default;touch-action:none}
+#cv.pan{cursor:grabbing}
+#cv.pen{cursor:crosshair}
+#cv.eraser{cursor:cell}
+#cv.line{cursor:crosshair}
+#cv.textI{cursor:text}
+.item{cursor:move}
+.item text{font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;
+  font-size:14px;fill:#1f2a36;pointer-events:none;user-select:none;stroke:none;font-weight:400}
+.item.sel ellipse.shp,.item.sel rect.shp{stroke:#1f4e79 !important;stroke-width:3 !important}
+.item.sel .txthit{stroke:#1f4e79 !important;stroke-width:1.5 !important;stroke-dasharray:4 3}
+.item .txthit{fill:transparent;stroke:transparent;stroke-width:2}
+.ep{cursor:move;fill:#fff;stroke:#1f4e79;stroke-width:2}
+.item.sel ellipse.shp,.item.sel rect.shp,.item.sel .txthit{stroke:#1f4e79 !important;stroke-width:2.5 !important}
+.badge{cursor:pointer;fill:#1f4e79;stroke:#fff;stroke-width:1.5}
+.badgeT{fill:#fff;font-size:10px;pointer-events:none;text-anchor:middle;dominant-baseline:central}
+.cnt-b{fill:#fff;stroke:#8aa4bd;stroke-width:1}
+.cnt-t{font-size:10px;fill:#4a6b8a;pointer-events:none;text-anchor:middle;dominant-baseline:central}
+#guide{stroke:#e07a5f;stroke-width:1;stroke-dasharray:4 4;pointer-events:none}
+#mini{position:absolute;right:14px;bottom:14px;width:190px;height:126px;background:#ffffffe6;
+  border:1px solid var(--line);border-radius:8px;box-shadow:0 2px 10px rgba(20,40,60,.12);
+  cursor:crosshair;z-index:20}
+#mini .vp{fill:rgba(46,109,164,.12);stroke:#2e6da4;stroke-width:1.2}
+.cbox{fill:#ffffffee;stroke:#c2d2e2;stroke-width:1.4;stroke-dasharray:6 4;cursor:move}
+.cbox:hover{stroke:#2e6da4}
+.cw{cursor:pointer}
+.cw:hover{fill:#1f4e79 !important;text-decoration:underline}
+.crsz{fill:#1f4e79;stroke:#fff;stroke-width:1.5}
+.crsz[data-corner="nw"],.crsz[data-corner="se"]{cursor:nwse-resize}
+.crsz[data-corner="ne"],.crsz[data-corner="sw"]{cursor:nesw-resize}
+.item.dim,.cloud.dim{opacity:.35}
+.clink{stroke:#8aa4bd;stroke-width:1.6;stroke-dasharray:6 5;fill:none}
+.cwsel{fill:#1f4e79 !important}
+#marquee{position:absolute;border:1px dashed #2e6da4;background:rgba(46,109,164,.08);
+  display:none;pointer-events:none;z-index:30}
+.item .rsz{cursor:nwse-resize;fill:#1f4e79;stroke:#fff;stroke-width:1.5}
+.edge{stroke:#8894a4;stroke-width:2;fill:none;cursor:pointer}
+.edge.sel{stroke:#1f4e79;stroke-width:3.5}
+.stroke{fill:none;stroke-linecap:round;stroke-linejoin:round;cursor:pointer}
+.stroke.sel{filter:drop-shadow(0 0 2px #1f4e79)}
+#empty-tip{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+  color:#9aa7b5;font-size:13px;text-align:center;pointer-events:none;line-height:1.9}
+
+#ctx{position:fixed;display:none;z-index:50;background:#fff;border:1px solid var(--line);
+  border-radius:9px;box-shadow:0 6px 24px rgba(20,40,60,.16);padding:6px;min-width:190px}
+#ctx .ci{padding:6px 10px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;
+  align-items:center;gap:8px;white-space:nowrap}
+#ctx .ci:hover{background:var(--accent-soft);color:var(--accent)}
+#ctx .sep{height:1px;background:var(--line2);margin:5px 4px}
+#ctx .ttl{font-size:11.5px;color:var(--sub);padding:4px 10px}
+#ctx .dot{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.15)}
+#inline{position:absolute;display:none;z-index:40;border:2px solid var(--accent2);border-radius:6px;
+  padding:2px 6px;background:#fff;outline:none;font-family:inherit;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">DocLib · 知识导图</div>
+  <select id="mapSel" title="选择导图"></select>
+  <button id="btnNew">新建</button>
+  <button id="btnRename">重命名</button>
+  <button class="danger" id="btnDel">删除</button>
+  <button class="primary" id="btnSave">保存</button>
+  <span id="status">就绪</span>
+  <div class="spacer"></div>
+  <button id="btnHome">返回主页</button>
+</header>
+
+<main id="main">
+  <section id="left">
+    <div class="tools" id="tools">
+      <div class="tool active" data-tool="select" title="选择 / 移动 / 缩放">◻ 选择</div>
+      <div class="tool" data-tool="line" title="拖拽连线（带箭头）">↗ 箭头线</div>
+      <div class="tool" data-tool="lineplain" title="拖拽连线（无箭头）">／ 直线</div>
+      <div class="tool" data-tool="pen" title="自由绘制">✎ 画笔</div>
+      <div class="tool" data-tool="eraser" title="按住拖动，扫过即擦">⌫ 橡皮</div>
+      <div class="tool" data-tool="text" title="点空白处加文本框">T 文本框</div>
+      <div class="tool" id="btnUndo" title="Ctrl+Z">↶ 撤销</div>
+      <div class="tool" id="btnRedo" title="Ctrl+Y">↷ 重做</div>
+      <div class="tool" id="btnFit" title="缩放到适合窗口">⤢ 适应</div>
+      <div class="tool" id="btnGen" title="用知识树自动生成一张导图">⚡ 生成导图</div>
+      <div class="tool" id="btnHidden" title="显示/隐藏被隐藏的节点">👁 显示隐藏</div>
+      <div class="tool" id="btnPng" title="导出 PNG 图片">⬇ PNG</div>
+      <div class="tool" id="btnSvg" title="导出 SVG 矢量图">⬇ SVG</div>
+    </div>
+    <div class="swatches" id="swatches">
+      <span style="font-size:12px;color:var(--sub)">颜色</span>
+    </div>
+    <div class="hint">拖节点生成框 · 选中后拖四角改大小 · 右键框改形状/颜色 · 单击词云选中后拖四角缩放 · 橡皮按住可扫着擦</div>
+    <div id="tree"></div>
+  </section>
+  <div id="splitter" title="拖动调整比例"></div>
+  <section id="right">
+    <svg id="cv" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" markerWidth="7" markerHeight="7" refX="6.2" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 z" fill="#222"></path>
+        </marker>
+      </defs>
+      <g id="world">
+        <g id="layer-strokes"></g>
+        <g id="layer-edges"></g>
+        <g id="layer-items"></g>
+        <g id="layer-clouds"></g>
+        <g id="layer-temp"></g>
+      </g>
+    </svg>
+    <div id="empty-tip">画布是空的<br>从左侧把知识节点拖进来</div>
+    <div id="marquee"></div>
+    <svg id="mini" xmlns="http://www.w3.org/2000/svg"></svg>
+    <input id="inline" type="text">
+  </section>
+</main>
+
+<div id="ctx"></div>
+
+<script>
+/* ================= 基础 ================= */
+const $ = (s)=>document.querySelector(s);
+const $$ = (s)=>Array.from(document.querySelectorAll(s));
+const esc = (s)=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = (p)=>p+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}));
+  let j;
+  try{ j = await r.json(); }catch(e){ throw new Error('返回不是 JSON'); }
+  if(j && j.ok === false) throw new Error(j.error || '操作失败');
+  return j;
+}
+const postJSON = (path, obj)=>api(path, {method:'POST', body:JSON.stringify(obj||{})});
+
+function setStatus(text, cls){
+  const st = $('#status');
+  st.textContent = text;
+  st.className = cls || '';
+}
+function toast(msg, ms){
+  setStatus(msg, '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>setStatus(savedFlag?'已保存':'未保存', savedFlag?'saved':'dirty'), ms||2400);
+}
+
+/* ================= 状态 ================= */
+const COLORS = ['#2e6da4','#2e7d4f','#b06a12','#a02a1e','#6a4c93','#0f7b8a','#8a5a2b','#4a5568'];
+const SHAPES = [['ellipse','椭圆框'],['rect','方框'],['round','圆角框'],['text','纯文本']];
+const state = {
+  map: {items:[], edges:[], strokes:[]},
+  name: '',
+  tool: 'select',
+  color: COLORS[0],
+  view: {x:0, y:0, k:1},
+  sel: null,
+  selIds: [],          // 多选（节点框）
+  cloudSel: null,      // 当前选中的词云所属节点 id
+  dirty: false,
+  undo: [],
+  redo: [],
+  treeMap: {},
+};
+let savedFlag = true;
+let erasing = false;
+let showHidden = false;      // 是否显示被"隐藏"的节点
+let dragging = null;
+
+/* ================= 坐标 ================= */
+function svgPoint(evt){
+  const r = $('#cv').getBoundingClientRect();
+  return {sx: evt.clientX - r.left, sy: evt.clientY - r.top};
+}
+function toWorld(evt){
+  const p = svgPoint(evt);
+  return {x: (p.sx - state.view.x)/state.view.k, y: (p.sy - state.view.y)/state.view.k};
+}
+function applyView(){
+  $('#world').setAttribute('transform',
+    `translate(${state.view.x},${state.view.y}) scale(${state.view.k})`);
+  if(typeof renderMini === 'function') renderMini();
+}
+
+/* ================= 渲染 ================= */
+const itemCenter = (it)=>({x: it.x + it.w/2, y: it.y + it.h/2});
+
+/* 折叠：某节点被折叠时，隐藏它「向外连线」可达的所有后代 */
+function hiddenSet(){
+  const hidden = new Set();
+  const byId = {};
+  state.map.items.forEach(i=>byId[i.id]=i);
+  const kids = {};
+  state.map.edges.forEach(e=>{
+    if(!e.from || !e.to) return;
+    (kids[e.from] ||= []).push(e.to);
+  });
+  function hideChildren(id){
+    (kids[id]||[]).forEach(k=>{
+      if(hidden.has(k)) return;
+      hidden.add(k);
+      hideChildren(k);
+    });
+  }
+  state.map.items.forEach(i=>{ if(i.collapsed) hideChildren(i.id); });
+  return hidden;
+}
+function childCount(id){
+  const kids = {};
+  state.map.edges.forEach(e=>{ if(e.from && e.to) (kids[e.from] ||= []).push(e.to); });
+  const seen = new Set();
+  (function walk(x){ (kids[x]||[]).forEach(k=>{ if(!seen.has(k)){ seen.add(k); walk(k); } }); })(id);
+  return seen.size;
+}
+function isSel(id){ return state.selIds.indexOf(id) >= 0; }
+
+function renderAll(){
+  renderItems(); renderEdges(); renderStrokes();
+  if(typeof renderClouds === 'function') renderClouds();
+  if(typeof renderMini === 'function') renderMini();
+  const n = state.map.items.length + state.map.strokes.length + state.map.edges.length;
+  $('#empty-tip').style.display = n ? 'none' : 'block';
+  applyView();
+}
+
+function textOf(it){
+  const s = String(it.text||'');
+  if(it.shape === 'text') return s;            // 纯文本不截断
+  const fs = it.fontSize || 14;
+  const max = Math.max(3, Math.floor((it.w - 16) / (fs * 0.95)));
+  return s.length > max ? s.slice(0, Math.max(1, max-1)) + '…' : s;
+}
+
+function shapeSvg(it, c){
+  const col = it.color || '#2e6da4';
+  if(it.shape === 'text'){
+    const fs = it.fontSize || 14;
+    return `<text class="itxt" x="${it.x}" y="${c.y}" text-anchor="start"
+      dominant-baseline="central" fill="${col}" style="font-size:${fs}px">${esc(textOf(it))}</text>
+      <rect class="txthit" x="${it.x-3}" y="${c.y-fs-6}" width="${it.w+6}" height="${fs*2+12}"></rect>`;
+  }
+  if(it.shape === 'rect'){
+    return `<rect class="shp" x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}"
+      fill="${col}" fill-opacity="0.14" stroke="${col}" stroke-width="2"></rect>`;
+  }
+  if(it.shape === 'round'){
+    return `<rect class="shp" x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}" rx="14" ry="14"
+      fill="${col}" fill-opacity="0.14" stroke="${col}" stroke-width="2"></rect>`;
+  }
+  return `<ellipse class="shp" cx="${c.x}" cy="${c.y}" rx="${it.w/2}" ry="${it.h/2}"
+    fill="${col}" fill-opacity="0.14" stroke="${col}" stroke-width="2"></ellipse>`;
+}
+
+function renderItems(){
+  const layer = $('#layer-items');
+  const hidden = hiddenSet();
+  layer.innerHTML = state.map.items.map(it=>{
+    if(hidden.has(it.id)) return '';
+    if(it.hidden && !showHidden) return '';
+    const c = itemCenter(it);
+    const selected = isSel(it.id);
+    const label = it.shape === 'text' ? '' :
+      `<text x="${c.x}" y="${c.y}" text-anchor="middle" dominant-baseline="central"
+        style="font-size:${it.fontSize || 14}px">${esc(textOf(it))}</text>`;
+    const handle = selected
+      ? `<rect class="rsz" x="${it.x+it.w-5}" y="${it.y+it.h-5}" width="10" height="10" rx="2"
+          data-rsz="${it.id}"></rect>` : '';
+    const n = childCount(it.id);
+    const badge = n
+      ? `<circle class="badge" data-badge="${it.id}" cx="${it.x+it.w}" cy="${it.y+it.h}" r="10"></circle>
+         <text class="badgeT" x="${it.x+it.w}" y="${it.y+it.h}">${it.collapsed ? '＋' : '－'}${n}</text>`
+      : '';
+    const info = it.node_id ? state.treeMap[it.node_id] : null;
+    const dc = info ? (info.doc_count || 0) : 0;
+    const cntBadge = (dc && it.shape !== 'text')
+      ? `<circle class="cnt-b" cx="${it.x+it.w-2}" cy="${it.y+2}" r="9"></circle>
+         <text class="cnt-t" x="${it.x+it.w-2}" y="${it.y+2}">${dc}</text>` : '';
+    return `<g class="item${selected?' sel':''}${it.hidden?' dim':''}" data-id="${it.id}" data-node="${it.node_id||''}">${shapeSvg(it,c)}${label}${handle}${badge}${cntBadge}</g>`;
+  }).join('');
+  layer.querySelectorAll('.item').forEach(g=>{
+    const id = g.dataset.id;
+    g.addEventListener('pointerdown', (e)=>onItemPointerDown(e, id));
+    g.addEventListener('dblclick', (e)=>{ e.stopPropagation(); startInlineEdit(id); });
+    g.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); openCtx(e, id); });
+  });
+  layer.querySelectorAll('[data-rsz]').forEach(h=>{
+    h.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); startResize(e, h.dataset.rsz); });
+  });
+  layer.querySelectorAll('[data-badge]').forEach(b=>{
+    b.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      const it = state.map.items.find(x=>x.id===b.dataset.badge);
+      if(!it) return;
+      pushUndo();
+      it.collapsed = !it.collapsed;
+      renderAll(); markDirty();
+      toast(it.collapsed ? '已折叠子节点' : '已展开');
+    });
+    b.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); });
+  });
+}
+
+function borderPoint(it, toward){
+  const c = itemCenter(it);
+  const dx = toward.x - c.x, dy = toward.y - c.y;
+  if(!dx && !dy) return c;
+  if(it.shape === 'rect' || it.shape === 'round'){
+    const sx = (it.w/2) / Math.max(1e-6, Math.abs(dx));
+    const sy = (it.h/2) / Math.max(1e-6, Math.abs(dy));
+    const t = Math.min(sx, sy);
+    return {x: c.x + dx*t, y: c.y + dy*t};
+  }
+  const t = 1 / Math.sqrt((dx*dx)/Math.max(1e-6,(it.w*it.w/4)) + (dy*dy)/Math.max(1e-6,(it.h*it.h/4)));
+  return {x: c.x + dx*t, y: c.y + dy*t};
+}
+
+function edgeGeom(e){
+  const a = state.map.items.find(i=>i.id===e.from);
+  const b = state.map.items.find(i=>i.id===e.to);
+  let A = a ? itemCenter(a) : {x: Number(e.x1||0), y: Number(e.y1||0)};
+  let B = b ? itemCenter(b) : {x: Number(e.x2||0), y: Number(e.y2||0)};
+  if(a && a.shape !== 'text') A = borderPoint(a, B);
+  if(b && b.shape !== 'text') B = borderPoint(b, A);
+  return {A, B};
+}
+
+function renderEdges(){
+  const layer = $('#layer-edges');
+  const hidden = hiddenSet();
+  const isHiddenItem = (id)=>{ const it = state.map.items.find(x=>x.id===id); return !!(it && it.hidden); };
+  layer.innerHTML = state.map.edges.map(e=>{
+    if((e.from && hidden.has(e.from)) || (e.to && hidden.has(e.to))) return '';
+    if(!showHidden && ((e.from && isHiddenItem(e.from)) || (e.to && isHiddenItem(e.to)))) return '';
+    const {A, B} = edgeGeom(e);
+    const sel = (state.sel && state.sel.type==='edge' && state.sel.id===e.id) ? ' sel' : '';
+    const dash = e.style==='dashed' ? ' stroke-dasharray="6 5"' : '';
+    const marker = e.style==='plain' ? '' : ' marker-end="url(#arrow)"';
+    let line = `<line class="edge${sel}" data-id="${e.id}" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"
+      stroke="${e.color||'#8894a4'}"${marker}${dash}></line>`;
+    if(sel){
+      line += `<circle class="ep" data-ep="${e.id}" data-end="1" cx="${A.x}" cy="${A.y}" r="5"></circle>
+               <circle class="ep" data-ep="${e.id}" data-end="2" cx="${B.x}" cy="${B.y}" r="5"></circle>`;
+    }
+    return line;
+  }).join('');
+  layer.querySelectorAll('.edge').forEach(l=>{
+    l.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); state.sel={type:'edge', id:l.dataset.id}; renderAll(); });
+    l.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); openCtxEdge(e, l.dataset.id); });
+    l.addEventListener('dblclick', (e)=>{ e.preventDefault(); e.stopPropagation(); insertOnEdge(l.dataset.id); });
+  });
+  layer.querySelectorAll('[data-ep]').forEach(c=>{
+    c.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      pushUndo();
+      dragging = {mode:'edgept', id: c.dataset.ep, end: Number(c.dataset.end)};
+      cv.setPointerCapture(e.pointerId);
+    });
+  });
+}
+
+function parsePts(d){
+  const nums = (d.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number);
+  const pts = [];
+  for(let i=0;i+1<nums.length;i+=2) pts.push([nums[i], nums[i+1]]);
+  return pts;
+}
+function strokePts(s){ return (s.pts && s.pts.length) ? s.pts : parsePts(s.d||''); }
+
+function renderStrokes(){
+  const layer = $('#layer-strokes');
+  layer.innerHTML = state.map.strokes.map(s=>{
+    const sel = (state.sel && state.sel.type==='stroke' && state.sel.id===s.id) ? ' sel' : '';
+    return `<path class="stroke${sel}" data-id="${s.id}" d="${s.d}" stroke="${s.color||'#333'}"
+      stroke-width="${s.width||2.4}"></path>`;
+  }).join('');
+  layer.querySelectorAll('.stroke').forEach(p=>{
+    p.addEventListener('pointerdown', (e)=>{ e.stopPropagation(); state.sel={type:'stroke', id:p.dataset.id}; renderAll(); });
+  });
+}
+
+/* ================= 词云 ================= */
+const CLOUD_PAD = 10;
+
+function cloudOrigin(it){
+  const c = it.cloud || {};
+  return {x: it.x + it.w + (c.dx == null ? 16 : c.dx), y: it.y + (c.dy || 0)};
+}
+
+function layoutCloud(it){
+  const c = it.cloud;
+  if(!c) return [];
+  const innerW = Math.max(50, c.w - CLOUD_PAD*2);
+  const innerH = Math.max(30, c.h - CLOUD_PAD*2);
+  const words = (c.words || []).slice().sort((a,b)=>(b.w||1)-(a.w||1));
+  let scale = 1;
+  for(let attempt = 0; attempt < 6; attempt++){
+    const out = [];
+    let x = 0, y = 0, lineH = 0;
+    for(const wd of words){
+      const base = wd.fs ? Math.max(9, wd.fs) : (11 + Math.min(12, (wd.w||1) * 1.5));
+      const fs = Math.max(9, base * scale);
+      const wpx = String(wd.t || '').length * fs * 0.98 + 10;
+      if(x > 0 && x + wpx > innerW){ x = 0; y += lineH + 5; lineH = 0; }
+      if(y + fs > innerH) break;
+      out.push({t: wd.t, x: CLOUD_PAD + x, y: CLOUD_PAD + y, fs,
+                color: wd.color, weight: wd.w || 1});
+      x += wpx;
+      lineH = Math.max(lineH, fs);
+    }
+    if(out.length === words.length || attempt === 5) return out;
+    scale *= 0.9;
+  }
+  return [];
+}
+
+function cloudRect(it){
+  const o = cloudOrigin(it);
+  return {x: o.x, y: o.y, w: it.cloud.w, h: it.cloud.h};
+}
+function rectEdgePoint(rect, toward){
+  const cx = rect.x + rect.w/2, cy = rect.y + rect.h/2;
+  const dx = toward.x - cx, dy = toward.y - cy;
+  if(!dx && !dy) return {x: cx, y: cy};
+  const t = Math.min((rect.w/2)/Math.max(1e-6,Math.abs(dx)), (rect.h/2)/Math.max(1e-6,Math.abs(dy)));
+  return {x: cx + dx*t, y: cy + dy*t};
+}
+
+function cloudSvg(it, ox, oy){
+  const c = it.cloud;
+  const words = layoutCloud(it).map((w, i)=>
+    `<text class="cw" data-cw="${it.id}" data-wi="${i}" x="${ox + w.x}" y="${oy + w.y}"
+      font-size="${w.fs.toFixed(1)}" dominant-baseline="hanging" fill="${w.color || '#33556f'}"
+      font-family="Microsoft YaHei,PingFang SC,sans-serif">${esc(w.t)}</text>`
+  ).join('');
+  const sel = state.cloudSel === it.id;
+  const handles = sel ? ['nw','ne','sw','se'].map(corner=>{
+    const hx = ox + (corner.indexOf('e') >= 0 ? c.w : 0);
+    const hy = oy + (corner.indexOf('s') >= 0 ? c.h : 0);
+    return `<rect class="crsz" data-crsz="${it.id}" data-corner="${corner}"
+      x="${hx - 6}" y="${hy - 6}" width="12" height="12" rx="2"></rect>`;
+  }).join('') : '';
+  // 词云 ↔ 节点 的虚线
+  let link = '';
+  if(c.link !== false){
+    const nodeC = itemCenter(it);
+    const cr = {x: ox, y: oy, w: c.w, h: c.h};
+    const p1 = it.shape === 'text' ? nodeC : borderPoint(it, {x: cr.x + cr.w/2, y: cr.y + cr.h/2});
+    const p2 = rectEdgePoint(cr, nodeC);
+    link = `<line class="clink" x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}"></line>`;
+  }
+  return `${link}<g class="cloud${it.hidden?' dim':''}" data-cloud="${it.id}">
+    <rect class="cbox" data-cbox="${it.id}" x="${ox}" y="${oy}" width="${c.w}" height="${c.h}" rx="10"></rect>
+    ${words}${handles}</g>`;
+}
+
+function renderClouds(){
+  if(typeof hiddenSet !== 'function') return;
+  const layer = $('#layer-clouds');
+  if(!layer) return;
+  const hidden = hiddenSet();
+  layer.innerHTML = state.map.items
+    .filter(it=>it.cloud && it.cloud.show !== false && !hidden.has(it.id)
+                && (!it.hidden || showHidden))
+    .map(it=>{
+      const o = cloudOrigin(it);
+      return cloudSvg(it, o.x, o.y);
+    }).join('');
+
+  layer.querySelectorAll('[data-cbox]').forEach(box=>{
+    const id = box.dataset.cbox;
+    box.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      state.cloudSel = id; renderClouds();
+      const it = state.map.items.find(x=>x.id===id);
+      if(!it || !it.cloud) return;
+      pushUndo();
+      dragging = {mode:'cloud', id, sx:e.clientX, sy:e.clientY,
+                  dx0: it.cloud.dx == null ? 16 : it.cloud.dx, dy0: it.cloud.dy || 0};
+      cv.setPointerCapture(e.pointerId);
+    });
+    box.addEventListener('dblclick', (e)=>{ e.stopPropagation(); addCloudWord(id); });
+    box.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); openCtxCloud(e, id); });
+  });
+  layer.querySelectorAll('[data-crsz]').forEach(h=>{
+    h.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      const it = state.map.items.find(x=>x.id===h.dataset.crsz);
+      if(!it || !it.cloud) return;
+      pushUndo();
+      const o = cloudOrigin(it);
+      dragging = {mode:'cloudresize', id: it.id, corner: h.dataset.corner || 'se',
+                  sx:e.clientX, sy:e.clientY,
+                  x0: o.x, y0: o.y, w0: it.cloud.w, h0: it.cloud.h};
+      cv.setPointerCapture(e.pointerId);
+    });
+  });
+  layer.querySelectorAll('.cw').forEach(t=>{
+    const id = t.dataset.cw, wi = Number(t.dataset.wi);
+    t.addEventListener('pointerdown', (e)=>e.stopPropagation());
+    t.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      state.cloudSel = id; renderClouds();
+      openCtxWord(e, id, wi);
+    });
+    t.addEventListener('dblclick', (e)=>{ e.stopPropagation(); editCloudWord(id, wi); });
+  });
+}
+
+/* 词云操作 */
+function ensureCloud(it){
+  if(!it.cloud) it.cloud = {show:true, dx:16, dy:0, w:250, h:160, words:[]};
+  return it.cloud;
+}
+function addCloudWord(itemId){
+  const it = state.map.items.find(x=>x.id===itemId);
+  if(!it) return;
+  const c = ensureCloud(it);
+  pushUndo();
+  c.words.push({t:'新词条', w:3});
+  renderClouds(); markDirty();
+  editCloudWord(itemId, c.words.length - 1);
+}
+function editCloudWord(itemId, idx){
+  const it = state.map.items.find(x=>x.id===itemId);
+  if(!it || !it.cloud || !it.cloud.words[idx]) return;
+  const cur = it.cloud.words[idx].t;
+  const v = prompt('修改词条（留空删除）', cur);
+  if(v === null) return;
+  pushUndo();
+  if(!v.trim()) it.cloud.words.splice(idx, 1);
+  else it.cloud.words[idx].t = v.trim();
+  renderClouds(); markDirty();
+}
+function openCtxWord(e, itemId, wi){
+  const it = state.map.items.find(x=>x.id===itemId);
+  if(!it || !it.cloud || !it.cloud.words[wi]) return;
+  const word = it.cloud.words[wi].t;
+  const nodeName = (state.treeMap[it.node_id] || {}).name || it.text || '';
+  const ctx = $('#ctx');
+  const wd = it.cloud.words[wi];
+  const colorRows = COLORS.map(c=>
+    `<div class="ci" data-color="${c}" style="display:inline-flex;width:auto;padding:4px 6px">
+       <span class="dot" style="background:${c}"></span></div>`).join('');
+  ctx.innerHTML = `
+    <div class="ttl">「${esc(word)}」</div>
+    <div class="ci" data-act="search">🔍 AI 检索（资料库搜索）</div>
+    <div class="ci" data-act="assoc">🧠 AI 联想（让模型展开）</div>
+    <div class="sep"></div>
+    <div class="ttl">字号（当前 ${wd.fs || '自动'}）</div>
+    <div class="ci" data-act="fs-" style="display:inline-flex;width:31%">A−</div>
+    <div class="ci" data-act="fs+" style="display:inline-flex;width:31%">A＋</div>
+    <div class="ci" data-act="fs0" style="display:inline-flex;width:31%">自动</div>
+    <div class="ttl">颜色</div>
+    <div class="ci" data-act="pickcolor">🎨 自定义颜色…</div>
+    <div style="display:flex;flex-wrap:wrap;gap:2px;padding:2px 8px">${colorRows}</div>
+    <div class="sep"></div>
+    <div class="ci" data-act="edit">✎ 编辑词条</div>
+    <div class="ci" data-act="del" style="color:#a02a1e">🗑 删除词条</div>`;
+  showCtxAt(ctx, e);
+  ctx.querySelectorAll('.ci').forEach(row=>{
+    row.onclick = ()=>{
+      const act = row.dataset.act;
+      if(row.dataset.color){
+        pushUndo(); wd.color = row.dataset.color; renderClouds(); markDirty(); hideCtx(); return;
+      }
+      if(act === 'fs-'){ pushUndo(); wd.fs = Math.max(9, (wd.fs || Math.round(11 + Math.min(12,(wd.w||1)*1.5))) - 2); renderClouds(); markDirty(); hideCtx(); return; }
+      if(act === 'fs+'){ pushUndo(); wd.fs = Math.min(40, (wd.fs || Math.round(11 + Math.min(12,(wd.w||1)*1.5))) + 2); renderClouds(); markDirty(); hideCtx(); return; }
+      if(act === 'fs0'){ pushUndo(); delete wd.fs; renderClouds(); markDirty(); hideCtx(); return; }
+      if(act === 'pickcolor'){
+        const inp = document.createElement('input');
+        inp.type = 'color'; inp.value = wd.color || '#33556f';
+        inp.style.cssText = 'position:fixed;left:-100px;top:-100px';
+        document.body.appendChild(inp);
+        inp.onchange = ()=>{ pushUndo(); wd.color = inp.value; renderClouds(); markDirty(); inp.remove(); };
+        inp.click(); hideCtx(); return;
+      }
+      if(act === 'search'){ location.href = '/?q=' + encodeURIComponent(word); return; }
+      if(act === 'assoc'){
+        const promptText = nodeName
+          ? `请结合资料，说明「${word}」在「${nodeName}」中的含义，并列出与之相关的知识点。`
+          : `请结合资料，说明「${word}」的含义，并列出与之相关的知识点。`;
+        location.href = '/?ask=' + encodeURIComponent(promptText);
+        return;
+      }
+      if(act === 'edit'){ hideCtx(); editCloudWord(itemId, wi); return; }
+      if(act === 'del'){ pushUndo(); it.cloud.words.splice(wi, 1); renderClouds(); markDirty(); }
+      hideCtx();
+    };
+  });
+}
+function openCtxCloud(e, itemId){
+  const it = state.map.items.find(x=>x.id===itemId);
+  if(!it) return;
+  const ctx = $('#ctx');
+  ctx.innerHTML = `
+    <div class="ttl">词云</div>
+    <div class="ci" data-act="add">＋ 添加词条</div>
+    <div class="ci" data-act="auto">⚡ 自动填词（按节点资料）</div>
+    <div class="ci" data-act="link">${it.cloud && it.cloud.link === false ? '☑ 连接节点（画线）' : '☐ 断开节点连接'}</div>
+    <div class="sep"></div>
+    <div class="ci" data-act="hide">☁ 隐藏词云</div>
+    <div class="ci" data-act="del" style="color:#a02a1e">🗑 删除词云</div>`;
+  showCtxAt(ctx, e);
+  ctx.querySelectorAll('.ci').forEach(row=>{
+    row.onclick = async ()=>{
+      const act = row.dataset.act;
+      if(act === 'add'){ hideCtx(); addCloudWord(itemId); return; }
+      if(act === 'auto'){ hideCtx(); await autoFillCloud(itemId); return; }
+      if(act === 'link'){
+        pushUndo();
+        it.cloud.link = (it.cloud.link === false);
+        renderClouds(); markDirty(); hideCtx(); return;
+      }
+      if(act === 'hide'){ pushUndo(); it.cloud.show = false; renderClouds(); markDirty(); hideCtx(); return; }
+      if(act === 'del'){ pushUndo(); it.cloud = null; state.cloudSel = null; renderClouds(); markDirty(); hideCtx(); return; }
+    };
+  });
+}
+
+/* 自动填词：节点关键词 + 子节点名 + 该节点文档标题 */
+async function autoFillCloud(itemId){
+  const it = state.map.items.find(x=>x.id===itemId);
+  if(!it) return;
+  const c = ensureCloud(it);
+  const bag = new Map();
+  const put = (t, w)=>{ t = String(t||'').trim(); if(!t || t.length < 2) return; bag.set(t, Math.max(bag.get(t)||0, w)); };
+  const info = it.node_id ? state.treeMap[it.node_id] : null;
+  (info && info.keywords || []).forEach(k=>put(k, 6));
+  put(it.text, 9);
+  ((info && info.children) || []).forEach(ch=>put(ch.name, 5));
+  try{
+    if(it.node_id){
+      const r = await api('/api/docs?node=' + it.node_id + '&scope=node');
+      (r.items || []).slice(0, 8).forEach(d=>{
+        (String(d.title || '').split(/[\s_、,，。\-—]+/)).forEach(x=>put(x, 4));
+      });
+    }
+  }catch(e){ /* 忽略 */ }
+  if(!bag.size){ bag.set('资料', 3); bag.set('知识点', 3); }
+  pushUndo();
+  c.words = [...bag.entries()].slice(0, 24).map(([t,w])=>({t, w}));
+  c.show = true;
+  state.cloudSel = it.id;
+  renderClouds(); markDirty();
+  toast('词云已自动填充 ' + c.words.length + ' 个词');
+}
+
+/* ================= 知识树 ================= */
+async function loadTree(){
+  const d = await api('/api/tree');
+  const roots = d.tree || [];
+  state.treeMap = {};
+  (function index(list){ (list||[]).forEach(n=>{ state.treeMap[n.id]=n; index(n.children); }); })(roots);
+
+  const collapsed = new Set(JSON.parse(localStorage.getItem('doclib_mm_collapsed') || '[]'));
+  const box = $('#tree');
+  box.innerHTML = '';
+  let count = 0;
+
+  function rowFor(node, depth){
+    const kids = node.children || [];
+    const isC = collapsed.has(node.id);
+    const row = document.createElement('div');
+    row.className = 'tnode' + (depth===0 ? ' root' : '');
+    row.style.paddingLeft = (6 + depth*14) + 'px';
+    row.draggable = true;
+    row.dataset.nodeId = node.id;
+    row.innerHTML = `<span class="caret">${kids.length ? (isC?'▶':'▼') : ''}</span>
+      <span class="nm">${esc(node.name)}</span>
+      <span class="cnt">${node.doc_count||0}</span>`;
+    row.querySelector('.caret').onclick = (ev)=>{
+      ev.stopPropagation();
+      if(!kids.length) return;
+      if(collapsed.has(node.id)) collapsed.delete(node.id); else collapsed.add(node.id);
+      localStorage.setItem('doclib_mm_collapsed', JSON.stringify([...collapsed]));
+      loadTree();
+    };
+    row.addEventListener('dragstart', (ev)=>{
+      ev.dataTransfer.setData('text/plain', 'node:' + node.id);
+      ev.dataTransfer.effectAllowed = 'copy';
+    });
+    box.appendChild(row);
+    count++;
+    if(!isC) kids.forEach(k=>rowFor(k, depth+1));
+  }
+  roots.forEach(r=>rowFor(r, 0));
+  if(!count) box.innerHTML = '<div class="hint">知识树还是空的，先回主页导入资料并建节点。</div>';
+}
+
+/* ================= 画布事件 ================= */
+const cv = $('#cv');
+
+cv.addEventListener('pointerdown', (e)=>{
+  hideCtx();
+  if(e.button === 1){
+    e.preventDefault();
+    dragging = {mode:'pan', sx:e.clientX, sy:e.clientY, vx:state.view.x, vy:state.view.y};
+    cv.classList.add('pan'); cv.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(e.button !== 0) return;
+  const tool = state.tool;
+  const w = toWorld(e);
+
+  if(tool === 'eraser'){
+    pushUndo(); erasing = true; eraseAt(w);
+    cv.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(tool === 'pen'){
+    const id = uid('s');
+    const stroke = {id, pts:[[w.x,w.y]], d:`M${w.x.toFixed(1)} ${w.y.toFixed(1)}`,
+                    color: state.color, width:2.4};
+    pushUndo();
+    state.map.strokes.push(stroke);
+    renderStrokes();
+    dragging = {mode:'pen', id, last:{x:w.x, y:w.y}};
+    markDirty();
+    cv.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(tool === 'text'){
+    pushUndo();
+    const it = {id:uid('i'), node_id:null, text:'文本', x:Math.round(w.x), y:Math.round(w.y-18),
+                w:140, h:36, shape:'text', color:state.color};
+    state.map.items.push(it);
+    state.sel = {type:'item', id:it.id};
+    renderAll(); markDirty();
+    startInlineEdit(it.id);
+    return;
+  }
+  if(!e.target.closest('.item, .edge, .stroke')){
+    if(tool === 'line' || tool === 'lineplain'){
+      state.sel = null; renderAll();
+      dragging = {mode:'line', from:null, sx:e.clientX, sy:e.clientY,
+                  x0: w.x, y0: w.y,
+                  style: tool === 'line' ? 'arrow' : 'plain'};
+      cv.setPointerCapture(e.pointerId);
+      return;
+    }
+    if(e.shiftKey){
+      const mq = $('#marquee');
+      const r = cv.getBoundingClientRect();
+      state.selIds = [];
+      dragging = {mode:'marquee', sx:e.clientX, sy:e.clientY,
+                  ox: e.clientX - r.left, oy: e.clientY - r.top};
+      mq.style.display = 'block';
+      mq.style.left = dragging.ox + 'px';
+      mq.style.top = dragging.oy + 'px';
+      mq.style.width = '0px';
+      mq.style.height = '0px';
+      cv.setPointerCapture(e.pointerId);
+      return;
+    }
+    state.sel = null; state.selIds = []; renderAll();
+    dragging = {mode:'pan', sx:e.clientX, sy:e.clientY, vx:state.view.x, vy:state.view.y};
+    cv.classList.add('pan');
+  }
+});
+
+cv.addEventListener('pointermove', (e)=>{
+  if(erasing){ eraseAt(toWorld(e)); return; }
+  if(!dragging) return;
+  if(dragging.mode === 'pan'){
+    state.view.x = dragging.vx + (e.clientX - dragging.sx);
+    state.view.y = dragging.vy + (e.clientY - dragging.sy);
+    applyView(); return;
+  }
+  if(dragging.mode === 'pen'){
+    const w = toWorld(e);
+    const s = state.map.strokes.find(x=>x.id===dragging.id);
+    if(!s) return;
+    if(Math.hypot(w.x-dragging.last.x, w.y-dragging.last.y) < 2) return;
+    dragging.last = {x:w.x, y:w.y};
+    s.pts.push([w.x, w.y]);
+    s.d += ` L${w.x.toFixed(1)} ${w.y.toFixed(1)}`;
+    const p = $(`#layer-strokes path[data-id="${dragging.id}"]`);
+    if(p) p.setAttribute('d', s.d);
+    return;
+  }
+  if(dragging.mode === 'item'){
+    let dx = (e.clientX - dragging.sx)/state.view.k;
+    let dy = (e.clientY - dragging.sy)/state.view.k;
+    const moved = state.map.items.find(x=>x.id===dragging.id);
+    if(moved){
+      const snapX = [], snapY = [];
+      const others = state.map.items.filter(x=>state.selIds.indexOf(x.id) < 0);
+      const th = 7 / state.view.k;
+      const target = {
+        left: dragging.x0 + dx, right: dragging.x0 + dx + moved.w,
+        cx: dragging.x0 + dx + moved.w/2,
+        top: dragging.y0 + dy, bottom: dragging.y0 + dy + moved.h,
+        cy: dragging.y0 + dy + moved.h/2,
+      };
+      let bestX = null, bestY = null;
+      others.forEach(o=>{
+        [['left', o.x, 'left'], ['right', o.x+o.w, 'right'], ['cx', o.x+o.w/2, 'cx']].forEach(([key, val, kind])=>{
+          [['left','left'], ['right','right'], ['cx','cx']].forEach(([tk])=>{
+            const delta = val - target[tk];
+            if(Math.abs(delta) <= th && (!bestX || Math.abs(delta) < Math.abs(bestX.delta))){
+              bestX = {delta, val, kind};
+            }
+          });
+        });
+        [['top', o.y], ['bottom', o.y+o.h], ['cy', o.y+o.h/2]].forEach(([key, val])=>{
+          [['top'], ['bottom'], ['cy']].forEach(([tk])=>{
+            const delta = val - target[tk];
+            if(Math.abs(delta) <= th && (!bestY || Math.abs(delta) < Math.abs(bestY.delta))){
+              bestY = {delta, val};
+            }
+          });
+        });
+      });
+      if(bestX) dx += bestX.delta;
+      if(bestY) dy += bestY.delta;
+      // 画辅助线
+      const layer = $('#layer-temp');
+      let guides = '';
+      if(bestX) guides += `<line id="guide" x1="${bestX.val}" y1="${-20000}" x2="${bestX.val}" y2="20000"></line>`;
+      if(bestY) guides += `<line id="guide" x1="${-20000}" y1="${bestY.val}" x2="20000" y2="${bestY.val}"></line>`;
+      layer.innerHTML = guides;
+    }
+    Object.keys(dragging.starts || {}).forEach(sid=>{
+      const it = state.map.items.find(x=>x.id===sid);
+      if(!it) return;
+      it.x = dragging.starts[sid].x + dx;
+      it.y = dragging.starts[sid].y + dy;
+    });
+    renderItems(); renderEdges(); renderMini(); return;
+  }
+  if(dragging.mode === 'resize'){
+    const it = state.map.items.find(x=>x.id===dragging.id);
+    if(!it) return;
+    it.w = clamp(dragging.w0 + (e.clientX - dragging.sx)/state.view.k, 60, 900);
+    it.h = clamp(dragging.h0 + (e.clientY - dragging.sy)/state.view.k, 28, 500);
+    renderItems(); renderEdges(); return;
+  }
+  if(dragging.mode === 'marquee'){
+    const r = cv.getBoundingClientRect();
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const mq = $('#marquee');
+    const x = Math.min(cx, dragging.ox), y = Math.min(cy, dragging.oy);
+    const w = Math.abs(cx - dragging.ox), h = Math.abs(cy - dragging.oy);
+    mq.style.left = x + 'px'; mq.style.top = y + 'px';
+    mq.style.width = w + 'px'; mq.style.height = h + 'px';
+    // 实时选中
+    const x1 = (x - state.view.x)/state.view.k, y1 = (y - state.view.y)/state.view.k;
+    const x2 = x1 + w/state.view.k, y2 = y1 + h/state.view.k;
+    const hidden = hiddenSet();
+    state.selIds = state.map.items.filter(it=>{
+      if(hidden.has(it.id)) return false;
+      return !(it.x > x2 || it.x + it.w < x1 || it.y > y2 || it.y + it.h < y1);
+    }).map(it=>it.id);
+    renderItems();
+    return;
+  }
+  if(dragging.mode === 'line'){ updateTempLine(e); return; }
+  if(dragging.mode === 'cloud'){
+    const it = state.map.items.find(x=>x.id===dragging.id);
+    if(!it || !it.cloud) return;
+    it.cloud.dx = Math.round(dragging.dx0 + (e.clientX - dragging.sx)/state.view.k);
+    it.cloud.dy = Math.round(dragging.dy0 + (e.clientY - dragging.sy)/state.view.k);
+    renderClouds(); return;
+  }
+  if(dragging.mode === 'cloudresize'){
+    const it = state.map.items.find(x=>x.id===dragging.id);
+    if(!it || !it.cloud) return;
+    const dx = (e.clientX - dragging.sx)/state.view.k;
+    const dy = (e.clientY - dragging.sy)/state.view.k;
+    const corner = dragging.corner || 'se';
+    let x1 = dragging.x0, y1 = dragging.y0;
+    let x2 = dragging.x0 + dragging.w0, y2 = dragging.y0 + dragging.h0;
+    if(corner.indexOf('e') >= 0) x2 = x2 + dx; else x1 = x1 + dx;
+    if(corner.indexOf('s') >= 0) y2 = y2 + dy; else y1 = y1 + dy;
+    const w = clamp(x2 - x1, 120, 900), h = clamp(y2 - y1, 80, 700);
+    // 固定对角：换算回相对节点的 dx/dy
+    const nx = (corner.indexOf('e') >= 0) ? x1 : x2 - w;
+    const ny = (corner.indexOf('s') >= 0) ? y1 : y2 - h;
+    it.cloud.w = Math.round(w);
+    it.cloud.h = Math.round(h);
+    it.cloud.dx = Math.round(nx - it.x - it.w);
+    it.cloud.dy = Math.round(ny - it.y);
+    renderClouds(); return;
+  }
+  if(dragging.mode === 'edgept'){
+    const ed = state.map.edges.find(x=>x.id===dragging.id);
+    if(!ed) return;
+    const w = toWorld(e);
+    if(dragging.end === 1){ ed.from = null; ed.x1 = w.x; ed.y1 = w.y; }
+    else { ed.to = null; ed.x2 = w.x; ed.y2 = w.y; }
+    renderEdges(); return;
+  }
+});
+
+cv.addEventListener('pointerup', (e)=>{
+  if(erasing){ erasing = false; return; }
+  if(dragging && dragging.mode === 'marquee'){
+    $('#marquee').style.display = 'none';
+    dragging = null;
+    toast(state.selIds.length ? ('已选中 ' + state.selIds.length + ' 个') : '未选中任何节点');
+    return;
+  }
+  if(dragging && dragging.mode === 'line'){ finishLine(e); return; }
+  if(dragging && dragging.mode === 'edgept'){
+    const ed = state.map.edges.find(x=>x.id===dragging.id);
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const g = el && el.closest ? el.closest('.item') : null;
+    if(ed && g && g.dataset.id !== (dragging.end===1 ? ed.to : ed.from)){
+      if(dragging.end === 1) ed.from = g.dataset.id;
+      else ed.to = g.dataset.id;
+    }
+    renderAll(); markDirty();
+  }
+  if(dragging && ['item','pen','resize','cloud','cloudresize','edgept','marquee'].indexOf(dragging.mode) >= 0) markDirty();
+  if(dragging && dragging.mode === 'item') $('#layer-temp').innerHTML = '';
+  dragging = null; cv.classList.remove('pan');
+});
+cv.addEventListener('pointerleave', ()=>{
+  if(dragging && dragging.mode==='pan'){ dragging = null; cv.classList.remove('pan'); }
+});
+
+cv.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  const p = svgPoint(e);
+  const k0 = state.view.k;
+  const k = clamp(k0 * (e.deltaY < 0 ? 1.12 : 1/1.12), 0.2, 3);
+  state.view.x = p.sx - (p.sx - state.view.x) * (k/k0);
+  state.view.y = p.sy - (p.sy - state.view.y) * (k/k0);
+  state.view.k = k;
+  applyView(); if(state.dirty) markDirty();
+}, {passive:false});
+
+cv.addEventListener('dragover', (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
+cv.addEventListener('drop', (e)=>{
+  e.preventDefault();
+  const raw = e.dataTransfer.getData('text/plain') || '';
+  if(!raw.startsWith('node:')) return;
+  const nid = Number(raw.slice(5));
+  const node = state.treeMap[nid];
+  if(!node) return;
+  const w = toWorld(e);
+  pushUndo();
+  state.map.items.push({
+    id: uid('i'), node_id: nid, text: node.name,
+    x: Math.round(w.x-80), y: Math.round(w.y-28), w:160, h:56,
+    shape:'ellipse', color: state.color,
+  });
+  state.sel = {type:'item', id: state.map.items[state.map.items.length-1].id};
+  renderAll(); markDirty();
+});
+
+/* ================= 节点交互 ================= */
+function onItemPointerDown(e, id){
+  if(e.button !== 0) return;
+  e.stopPropagation();
+  const it = state.map.items.find(x=>x.id===id);
+  if(!it) return;
+
+  if(state.tool === 'eraser'){ pushUndo(); eraseItem(id); return; }
+
+  if(state.tool === 'line' || state.tool === 'lineplain'){
+    state.sel = {type:'item', id};
+    renderAll();
+    const w0 = toWorld(e);
+    dragging = {mode:'line', from:id, sx:e.clientX, sy:e.clientY,
+                x0: w0.x, y0: w0.y,
+                style: state.tool === 'line' ? 'arrow' : 'plain'};
+    cv.setPointerCapture(e.pointerId);
+    return;
+  }
+  if(e.shiftKey){
+    state.selIds = isSel(id) ? state.selIds.filter(x=>x!==id) : state.selIds.concat([id]);
+  }else if(!isSel(id)){
+    state.selIds = [id];
+  }
+  state.sel = {type:'item', id};
+  renderAll();
+  pushUndo();
+  const starts = {};
+  state.selIds.forEach(sid=>{
+    const sIt = state.map.items.find(x=>x.id===sid);
+    if(sIt) starts[sid] = {x:sIt.x, y:sIt.y};
+  });
+  dragging = {mode:'item', id, sx:e.clientX, sy:e.clientY, starts,
+              x0:it.x, y0:it.y};
+  cv.setPointerCapture(e.pointerId);
+}
+
+function startResize(e, id){
+  const it = state.map.items.find(x=>x.id===id);
+  if(!it) return;
+  pushUndo();
+  dragging = {mode:'resize', id, sx:e.clientX, sy:e.clientY, w0:it.w, h0:it.h};
+  cv.setPointerCapture(e.pointerId);
+}
+
+function updateTempLine(e){
+  const layer = $('#layer-temp');
+  const w = toWorld(e);
+  const a = dragging.from ? state.map.items.find(x=>x.id===dragging.from) : null;
+  const A = a ? itemCenter(a) : {x: dragging.x0, y: dragging.y0};
+  layer.innerHTML = `<line x1="${A.x}" y1="${A.y}" x2="${w.x}" y2="${w.y}"
+    stroke="#2e6da4" stroke-width="2" stroke-dasharray="5 4"
+    ${dragging.style==='arrow' ? 'marker-end="url(#arrow)"' : ''}></line>`;
+}
+
+function finishLine(e){
+  $('#layer-temp').innerHTML = '';
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const g = el && el.closest ? el.closest('.item') : null;
+  const to = g ? g.dataset.id : null;
+  const from = dragging.from;
+  const style = dragging.style || 'arrow';
+  const w = toWorld(e);
+  const x0 = dragging.x0, y0 = dragging.y0;
+  dragging = null;
+  if(to && to === from){ renderAll(); return; }
+  if(Math.hypot(w.x - x0, w.y - y0) < 6){ renderAll(); return; }   // 太短，忽略
+  if(from && to && state.map.edges.some(x=>x.from===from && x.to===to)){
+    toast('这两个框已经连过了'); renderAll(); return;
+  }
+  pushUndo();
+  const edge = {id: uid('e'), from, to, x1: x0, y1: y0, x2: w.x, y2: w.y,
+                style, color:'#8894a4'};
+  state.map.edges.push(edge);
+  state.sel = {type:'edge', id: edge.id};
+  renderAll(); markDirty();
+  toast(to && from ? '已连线' : '已画线（可拖端点调整）');
+}
+
+/* ================= 内联编辑 ================= */
+function startInlineEdit(id){
+  const it = state.map.items.find(x=>x.id===id);
+  if(!it) return;
+  const inp = $('#inline');
+  const rect = cv.getBoundingClientRect();
+  inp.value = it.text || '';
+  inp.style.display = 'block';
+  inp.style.left = (rect.left + state.view.x + it.x*state.view.k + window.scrollX) + 'px';
+  inp.style.top = (rect.top + state.view.y + it.y*state.view.k + window.scrollY) + 'px';
+  inp.style.width = Math.max(90, it.w*state.view.k) + 'px';
+  inp.style.height = Math.max(28, it.h*state.view.k) + 'px';
+  inp.style.fontSize = Math.max(12, 14*state.view.k) + 'px';
+  inp.dataset.id = id;
+  inp.focus(); inp.select();
+  inp.onkeydown = (ev)=>{
+    if(ev.key === 'Enter'){ ev.preventDefault(); commitInline(); }
+    else if(ev.key === 'Escape'){ inp.style.display = 'none'; }
+  };
+  inp.onblur = ()=>commitInline();
+}
+function commitInline(){
+  const inp = $('#inline');
+  if(inp.style.display === 'none') return;
+  const id = inp.dataset.id;
+  const it = state.map.items.find(x=>x.id===id);
+  inp.style.display = 'none';
+  if(!it) return;
+  const v = inp.value.trim();
+  if(!v || v === it.text) return;
+  pushUndo(); it.text = v; renderAll(); markDirty();
+}
+
+/* ================= 橡皮（扫过即擦） ================= */
+function hitItem(w){
+  for(let i=state.map.items.length-1; i>=0; i--){
+    const it = state.map.items[i];
+    if(w.x >= it.x-6 && w.x <= it.x+it.w+6 && w.y >= it.y-6 && w.y <= it.y+it.h+6) return it.id;
+  }
+  return null;
+}
+function distToSeg(px,py,x1,y1,x2,y2){
+  const dx=x2-x1, dy=y2-y1;
+  const L = dx*dx+dy*dy;
+  let t = L ? ((px-x1)*dx + (py-y1)*dy)/L : 0;
+  t = clamp(t,0,1);
+  return Math.hypot(px-(x1+t*dx), py-(y1+t*dy));
+}
+function eraseAt(w){
+  const RAD = 12 / state.view.k;
+  let changed = false;
+  const iid = hitItem(w);
+  if(iid){
+    state.map.items = state.map.items.filter(x=>x.id!==iid);
+    state.map.edges = state.map.edges.filter(e=>e.from!==iid && e.to!==iid);
+    changed = true;
+  }
+  const keepEdges = [];
+  state.map.edges.forEach(e=>{
+    const {A, B} = edgeGeom(e);
+    if(distToSeg(w.x,w.y,A.x,A.y,B.x,B.y) > RAD) keepEdges.push(e);
+    else changed = true;
+  });
+  state.map.edges = keepEdges;
+
+  const keepStrokes = [];
+  state.map.strokes.forEach(s=>{
+    const pts = strokePts(s);
+    let hit = false;
+    for(let i=1;i<pts.length;i++){
+      if(distToSeg(w.x,w.y, pts[i-1][0],pts[i-1][1], pts[i][0],pts[i][1]) <= RAD){ hit = true; break; }
+    }
+    if(!hit && pts.length === 1 && Math.hypot(w.x-pts[0][0], w.y-pts[0][1]) <= RAD) hit = true;
+    if(hit) changed = true; else keepStrokes.push(s);
+  });
+  if(changed){
+    state.map.strokes = keepStrokes;
+    renderAll(); markDirty();
+  }
+}
+function eraseItem(id){
+  state.map.items = state.map.items.filter(x=>x.id!==id);
+  state.map.edges = state.map.edges.filter(e=>e.from!==id && e.to!==id);
+  renderAll(); markDirty();
+}
+
+/* ================= 右键菜单 ================= */
+function openCtx(e, itemId){
+  const it = state.map.items.find(x=>x.id===itemId);
+  if(!it) return;
+  state.sel = {type:'item', id:itemId};
+  renderAll();
+  const ctx = $('#ctx');
+  const shapeRows = SHAPES.map(([k,label])=>
+    `<div class="ci" data-act="shape" data-shape="${k}">${it.shape===k?'●':'○'} ${label}</div>`).join('');
+  const colorRows = COLORS.map(c=>
+    `<div class="ci" data-act="color" data-color="${c}"><span class="dot" style="background:${c}"></span>${c}</div>`).join('');
+  ctx.innerHTML = `
+    <div class="ttl">形状</div>${shapeRows}
+    <div class="sep"></div>
+    <div class="ttl">颜色</div>
+    <div class="ci" data-act="pickcolor"><span class="dot" style="background:linear-gradient(90deg,#f00,#0f0,#00f)"></span>自定义颜色…</div>
+    ${colorRows}
+    <div class="sep"></div>
+    <div class="ttl">字号</div>
+    <div class="ci" data-act="font" data-size="12" style="display:inline-flex;width:31%">12</div>
+    <div class="ci" data-act="font" data-size="14" style="display:inline-flex;width:31%">14</div>
+    <div class="ci" data-act="font" data-size="16" style="display:inline-flex;width:31%">16</div>
+    <div class="ci" data-act="font" data-size="18" style="display:inline-flex;width:31%">18</div>
+    <div class="ci" data-act="font" data-size="22" style="display:inline-flex;width:31%">22</div>
+    <div class="ci" data-act="font" data-size="28" style="display:inline-flex;width:31%">28</div>
+    <div class="sep"></div>
+    <div class="ttl">词云</div>
+    <div class="ci" data-act="cloudNew">☁ 添加/显示词云</div>
+    <div class="ci" data-act="cloudAuto">⚡ 自动填词</div>
+    <div class="sep"></div>
+    ${it.node_id ? `<div class="ci" data-act="opendocs">📂 打开该节点的文档</div>
+    <div class="ci" data-act="askai">🤖 问 AI（此节点）</div><div class="sep"></div>` : ''}
+    <div class="ci" data-act="edit">✎ 编辑文字</div>
+    <div class="ci" data-act="dup">⧉ 复制一个</div>
+    <div class="ci" data-act="hide">${it.hidden ? '👁 取消隐藏' : '🙈 隐藏节点（可多选批量）'}</div>
+    <div class="ci" data-act="del" style="color:#a02a1e">🗑 删除</div>`;
+  showCtxAt(ctx, e);
+  ctx.querySelectorAll('.ci').forEach(row=>{
+    row.onclick = ()=>{
+      const act = row.dataset.act;
+      const targets = state.selIds.length > 1 ? state.selIds : [it.id];
+      const applyAll = (fn)=>{ pushUndo(); targets.forEach(tid=>{ const x = state.map.items.find(i=>i.id===tid); if(x) fn(x); }); renderAll(); markDirty(); };
+      if(act === 'shape'){ applyAll(x=>{ x.shape = row.dataset.shape; }); }
+      else if(act === 'font'){ applyAll(x=>{ x.fontSize = Number(row.dataset.size) || 14; }); }
+      else if(act === 'color'){ pushUndo(); it.color = row.dataset.color; renderAll(); markDirty(); }
+      else if(act === 'pickcolor'){
+        const inp = document.createElement('input');
+        inp.type = 'color'; inp.value = it.color || '#2e6da4';
+        inp.style.cssText = 'position:fixed;left:-100px;top:-100px';
+        document.body.appendChild(inp);
+        inp.oninput = ()=>{ it.color = inp.value; renderAll(); };
+        inp.onchange = ()=>{ pushUndo(); it.color = inp.value; renderAll(); markDirty(); inp.remove(); };
+        inp.click(); hideCtx(); return;
+      }
+      else if(act === 'cloudNew'){
+        pushUndo();
+        if(it.cloud){ it.cloud.show = true; } else { ensureCloud(it); autoFillCloud(it.id); }
+        state.cloudSel = it.id; renderClouds(); markDirty();
+      }
+      else if(act === 'cloudAuto'){ hideCtx(); autoFillCloud(it.id); return; }
+      else if(act === 'opendocs'){
+        const nid = it.node_id;
+        if(nid){ location.href = '/?node=' + nid; }
+        return;
+      }
+      else if(act === 'askai'){
+        const nm = (state.treeMap[it.node_id] || {}).name || it.text || '';
+        location.href = '/?ask=' + encodeURIComponent(nm);
+        return;
+      }
+      else if(act === 'edit'){ hideCtx(); startInlineEdit(it.id); return; }
+      else if(act === 'hide'){
+        const ids = state.selIds.length > 1 ? state.selIds : [it.id];
+        pushUndo();
+        const toHide = !it.hidden;
+        ids.forEach(id=>{ const x = state.map.items.find(i=>i.id===id); if(x) x.hidden = toHide; });
+        if(toHide) state.selIds = [];
+        renderAll(); markDirty();
+        toast(toHide ? ('已隐藏 ' + ids.length + ' 个节点（点工具栏「👁 显示隐藏」可看到）') : '已取消隐藏');
+      }
+      else if(act === 'dup'){
+        pushUndo();
+        state.map.items.push(Object.assign({}, it, {id: uid('i'), x: it.x+24, y: it.y+24}));
+        renderAll(); markDirty();
+      }
+      else if(act === 'del'){ pushUndo(); eraseItem(it.id); }
+      hideCtx();
+    };
+  });
+}
+
+function openCtxEdge(e, edgeId){
+  const edge = state.map.edges.find(x=>x.id===edgeId);
+  if(!edge) return;
+  const ctx = $('#ctx');
+  const styles = [['arrow','→ 箭头线'],['plain','— 直线'],['dashed','┄ 虚线']];
+  ctx.innerHTML = `<div class="ttl">线型</div>` +
+    styles.map(([k,t])=>
+      `<div class="ci" data-style="${k}">${(edge.style||'arrow')===k?'●':'○'} ${t}</div>`).join('') +
+    `<div class="sep"></div>
+     <div class="ci" data-act="flip">⇄ 反向</div>
+     <div class="ci" data-act="del" style="color:#a02a1e">🗑 删除连线</div>`;
+  showCtxAt(ctx, e);
+  ctx.querySelectorAll('.ci').forEach(row=>{
+    row.onclick = ()=>{
+      pushUndo();
+      if(row.dataset.style) edge.style = row.dataset.style;
+      else if(row.dataset.act === 'flip'){ const t = edge.from; edge.from = edge.to; edge.to = t; }
+      else if(row.dataset.act === 'del'){ state.map.edges = state.map.edges.filter(x=>x.id!==edgeId); }
+      renderAll(); markDirty(); hideCtx();
+    };
+  });
+}
+
+function showCtxAt(ctx, e){
+  ctx.style.display = 'block';
+  const r = ctx.getBoundingClientRect();
+  ctx.style.left = Math.min(e.clientX, window.innerWidth - r.width - 8) + 'px';
+  ctx.style.top = Math.min(e.clientY, window.innerHeight - r.height - 8) + 'px';
+}
+function hideCtx(){ $('#ctx').style.display = 'none'; }
+document.addEventListener('pointerdown', (e)=>{ if(!e.target.closest('#ctx')) hideCtx(); });
+
+/* ================= 工具 & 颜色 ================= */
+function setTool(t){
+  state.tool = t;
+  cv.setAttribute('class', '');
+  if(t === 'pen') cv.classList.add('pen');
+  else if(t === 'eraser') cv.classList.add('eraser');
+  else if(t === 'line' || t === 'lineplain') cv.classList.add('line');
+  else if(t === 'text') cv.classList.add('textI');
+  $$('.tool[data-tool]').forEach(el=>el.classList.toggle('active', el.dataset.tool===t));
+}
+$$('.tool[data-tool]').forEach(el=>{ el.onclick = ()=>setTool(el.dataset.tool); });
+$('#btnUndo').onclick = ()=>undo();
+$('#btnRedo').onclick = ()=>redo();
+
+function buildSwatches(){
+  const box = $('#swatches');
+  COLORS.forEach(c=>{
+    const d = document.createElement('div');
+    d.className = 'sw' + (c===state.color?' active':'');
+    d.style.background = c; d.title = c;
+    d.onclick = ()=>setColor(c);
+    box.appendChild(d);
+  });
+  const inp = document.createElement('input');
+  inp.type = 'color'; inp.value = state.color; inp.title = '自定义颜色';
+  inp.oninput = ()=>setColor(inp.value);
+  box.appendChild(inp);
+}
+function setColor(c){
+  state.color = c;
+  $$('.sw').forEach(el=>el.classList.toggle('active', el.title===c));
+  const ids = state.selIds.length ? state.selIds.slice() : (state.sel && state.sel.type==='item' ? [state.sel.id] : []);
+  if(!ids.length) return;
+  pushUndo();
+  ids.forEach(id=>{ const it = state.map.items.find(x=>x.id===id); if(it) it.color = c; });
+  renderAll(); markDirty(); toast('已改颜色' + (ids.length>1 ? ('（'+ids.length+' 个）') : ''));
+}
+
+/* ================= 连线中点插入节点 ================= */
+function insertOnEdge(edgeId){
+  const e = state.map.edges.find(x=>x.id===edgeId);
+  if(!e) return;
+  const {A, B} = edgeGeom(e);
+  pushUndo();
+  const it = {
+    id: uid('i'), node_id: null, text: '新节点',
+    x: (A.x + B.x)/2 - 70, y: (A.y + B.y)/2 - 24,
+    w: 140, h: 48, shape: 'ellipse', color: state.color, fontSize: 14,
+  };
+  state.map.items.push(it);
+  const idx = state.map.edges.indexOf(e);
+  const e1 = {id: uid('e'), from: e.from, to: it.id, x1: e.x1, y1: e.y1,
+              style: e.style || 'arrow', color: e.color || '#8894a4'};
+  const e2 = {id: uid('e'), from: it.id, to: e.to, x2: e.x2, y2: e.y2,
+              style: e.style || 'arrow', color: e.color || '#8894a4'};
+  state.map.edges.splice(idx, 1, e1, e2);
+  state.selIds = [it.id]; state.sel = {type:'item', id: it.id};
+  renderAll(); markDirty();
+  startInlineEdit(it.id);
+  toast('已在连线中点插入节点，输入文字');
+}
+
+/* ================= 缩略图 ================= */
+function renderMini(){
+  const mini = $('#mini');
+  if(!mini) return;
+  const W = 190, H = 126, PAD = 6;
+  const bb = contentBBox();
+  if(!bb){
+    mini.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="11" fill="#9aa7b5">空画布</text>`;
+    return;
+  }
+  const w = Math.max(1, bb.x2-bb.x1), h = Math.max(1, bb.y2-bb.y1);
+  const k = Math.min((W-PAD*2)/w, (H-PAD*2)/h);
+  const ox = PAD - bb.x1*k + ((W-PAD*2) - w*k)/2;
+  const oy = PAD - bb.y1*k + ((H-PAD*2) - h*k)/2;
+  const hidden = hiddenSet();
+  const items = state.map.items.filter(it=>!hidden.has(it.id) && (!it.hidden || showHidden)).map(it=>{
+    if(it.shape === 'text'){
+      return `<rect x="${it.x*k+ox}" y="${it.y*k+oy}" width="${Math.max(2,it.w*k)}"
+        height="${Math.max(1.5,it.h*k)}" fill="${it.color||'#2e6da4'}" opacity="0.45"></rect>`;
+    }
+    return `<rect x="${it.x*k+ox}" y="${it.y*k+oy}" width="${Math.max(3,it.w*k)}" height="${Math.max(2,it.h*k)}"
+      rx="${(it.h*k)/2}" fill="${it.color||'#2e6da4'}" opacity="0.55"></rect>`;
+  }).join('');
+  const edges = state.map.edges.filter(e=>!((e.from && hidden.has(e.from))||(e.to && hidden.has(e.to))))
+    .map(e=>{
+      const {A,B} = edgeGeom(e);
+      return `<line x1="${A.x*k+ox}" y1="${A.y*k+oy}" x2="${B.x*k+ox}" y2="${B.y*k+oy}"
+        stroke="#9fb0c2" stroke-width="1"></line>`;
+    }).join('');
+  // 视口框
+  const r = cv.getBoundingClientRect();
+  const vx = (-state.view.x/state.view.k)*k + ox;
+  const vy = (-state.view.y/state.view.k)*k + oy;
+  const vw = (r.width/state.view.k)*k, vh = (r.height/state.view.k)*k;
+  mini.innerHTML = `<defs><clipPath id="miniClip"><rect x="0" y="0" width="${W}" height="${H}" rx="8"></rect></clipPath></defs>
+    <g clip-path="url(#miniClip)">${edges}${items}</g>
+    <rect class="vp" x="${vx}" y="${vy}" width="${vw}" height="${vh}"
+      clip-path="url(#miniClip)"></rect>`;
+  mini._map = {k, ox, oy};
+}
+
+let miniDrag = false;
+function miniJump(e){
+  const mini = $('#mini');
+  const m = mini._map;
+  if(!m) return;
+  const rc = mini.getBoundingClientRect();
+  const mx = e.clientX - rc.left, my = e.clientY - rc.top;
+  const wx = (mx - m.ox)/m.k, wy = (my - m.oy)/m.k;
+  const r = cv.getBoundingClientRect();
+  state.view.x = r.width/2 - wx*state.view.k;
+  state.view.y = r.height/2 - wy*state.view.k;
+  applyView(); renderMini();
+}
+$('#mini').addEventListener('pointerdown', (e)=>{
+  e.stopPropagation();
+  miniDrag = true;
+  $('#mini').setPointerCapture(e.pointerId);
+  miniJump(e);
+});
+$('#mini').addEventListener('pointermove', (e)=>{ if(miniDrag) miniJump(e); });
+$('#mini').addEventListener('pointerup', ()=>{ miniDrag = false; });
+
+/* ================= 适应窗口 / 导出 / 自动生成 ================= */
+function contentBBox(){
+  const pts = [];
+  const hidden = hiddenSet();
+  state.map.items.forEach(it=>{
+    if(hidden.has(it.id)) return;
+    if(it.hidden && !showHidden) return;
+    pts.push([it.x, it.y], [it.x+it.w, it.y+it.h]);
+    if(it.cloud && it.cloud.show !== false){
+      const o = cloudOrigin(it);
+      pts.push([o.x, o.y], [o.x + it.cloud.w, o.y + it.cloud.h]);
+    }
+  });
+  state.map.strokes.forEach(st=>{ strokePts(st).forEach(p=>pts.push(p)); });
+  state.map.edges.forEach(e=>{
+    if((e.from && hidden.has(e.from)) || (e.to && hidden.has(e.to))) return;
+    const {A,B} = edgeGeom(e); pts.push([A.x,A.y],[B.x,B.y]);
+  });
+  if(!pts.length) return null;
+  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+  return {x1: Math.min(...xs), y1: Math.min(...ys),
+          x2: Math.max(...xs), y2: Math.max(...ys)};
+}
+
+function fitView(){
+  const bb = contentBBox();
+  if(!bb) return;
+  const r = cv.getBoundingClientRect();
+  const pad = 60;
+  const w = Math.max(1, bb.x2-bb.x1), h = Math.max(1, bb.y2-bb.y1);
+  const k = clamp(Math.min((r.width-pad*2)/w, (r.height-pad*2)/h), 0.2, 2);
+  state.view.k = k;
+  state.view.x = (r.width - w*k)/2 - bb.x1*k;
+  state.view.y = (r.height - h*k)/2 - bb.y1*k;
+  applyView(); markDirty();
+  toast('已适应窗口');
+}
+
+function buildSvgString(){
+  const bb = contentBBox() || {x1:0,y1:0,x2:400,y2:300};
+  const pad = 40;
+  const w = Math.ceil((bb.x2-bb.x1) + pad*2);
+  const h = Math.ceil((bb.y2-bb.y1) + pad*2);
+  const hidden = hiddenSet();
+  const items = state.map.items.filter(it=>!hidden.has(it.id) && (!it.hidden || showHidden)).map(it=>{
+    const c = itemCenter(it);
+    const col = it.color || '#2e6da4';
+    const fs = it.fontSize || 14;
+    const label = esc(textOf(it));
+    if(it.shape === 'text'){
+      return `<text x="${it.x}" y="${c.y}" text-anchor="start" dominant-baseline="central"
+        fill="${col}" font-family="Microsoft YaHei,PingFang SC,sans-serif" font-size="${fs}">${label}</text>`;
+    }
+    const txt = `<text x="${c.x}" y="${c.y}" text-anchor="middle" dominant-baseline="central"
+      fill="#1f2a36" font-family="Microsoft YaHei,PingFang SC,sans-serif" font-size="${fs}">${label}</text>`;
+    if(it.shape === 'rect'){
+      return `<rect x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}" fill="${col}"
+        fill-opacity="0.14" stroke="${col}" stroke-width="2"></rect>${txt}`;
+    }
+    if(it.shape === 'round'){
+      return `<rect x="${it.x}" y="${it.y}" width="${it.w}" height="${it.h}" rx="14" ry="14"
+        fill="${col}" fill-opacity="0.14" stroke="${col}" stroke-width="2"></rect>${txt}`;
+    }
+    return `<ellipse cx="${c.x}" cy="${c.y}" rx="${it.w/2}" ry="${it.h/2}" fill="${col}"
+      fill-opacity="0.14" stroke="${col}" stroke-width="2"></ellipse>${txt}`;
+  }).join('');
+
+  const edges = state.map.edges.filter(e=>!((e.from && hidden.has(e.from)) || (e.to && hidden.has(e.to))))
+    .map(e=>{
+      const {A,B} = edgeGeom(e);
+      const dash = e.style==='dashed' ? ' stroke-dasharray="6 5"' : '';
+      const marker = e.style==='plain' ? '' : ' marker-end="url(#arrow)"';
+      return `<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="${e.color||'#8894a4'}"
+        stroke-width="2" fill="none"${marker}${dash}></line>`;
+    }).join('');
+
+  const clouds = state.map.items
+    .filter(it=>it.cloud && it.cloud.show !== false && !hidden.has(it.id))
+    .map(it=>{
+      const o = cloudOrigin(it);
+      const words = layoutCloud(it).map(w=>
+        `<text x="${o.x + w.x}" y="${o.y + w.y}" font-size="${w.fs.toFixed(1)}"
+          dominant-baseline="hanging" fill="#33556f"
+          font-family="Microsoft YaHei,PingFang SC,sans-serif">${esc(w.t)}</text>`).join('');
+      return `<rect x="${o.x}" y="${o.y}" width="${it.cloud.w}" height="${it.cloud.h}" rx="10"
+        fill="#ffffff" fill-opacity="0.92" stroke="#c2d2e2" stroke-width="1.4"
+        stroke-dasharray="6 4"></rect>${words}`;
+    }).join('');
+
+  const strokes = state.map.strokes.map(st=>
+    `<path d="${st.d}" stroke="${st.color||'#333'}" stroke-width="${st.width||2.4}"
+      fill="none" stroke-linecap="round" stroke-linejoin="round"></path>`).join('');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6.2" refY="3.5" orient="auto">
+    <path d="M0,0 L7,3.5 L0,7 z" fill="#222"></path></marker></defs>
+  <rect width="${w}" height="${h}" fill="#ffffff"></rect>
+  <g transform="translate(${-bb.x1+pad},${-bb.y1+pad})">${edges}${strokes}${items}${clouds}</g>
+</svg>`;
+}
+
+function download(name, blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+}
+
+function exportSvg(){
+  const svg = buildSvgString();
+  download((state.name || '导图') + '.svg', new Blob([svg], {type:'image/svg+xml'}));
+  toast('已导出 SVG');
+}
+
+function exportPng(){
+  const svg = buildSvgString();
+  const m = /width="(\d+)" height="(\d+)"/.exec(svg);
+  const w = m ? Number(m[1]) : 800, h = m ? Number(m[2]) : 600;
+  const img = new Image();
+  const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  img.onload = ()=>{
+    const scale = 2;
+    const cvs = document.createElement('canvas');
+    cvs.width = w * scale; cvs.height = h * scale;
+    const g = cvs.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, cvs.width, cvs.height);
+    g.drawImage(img, 0, 0, cvs.width, cvs.height);
+    cvs.toBlob((b)=>download((state.name || '导图') + '.png', b), 'image/png');
+    toast('已导出 PNG');
+  };
+  img.onerror = ()=>toast('PNG 导出失败，可改用 SVG');
+  img.src = url;
+}
+
+/* 一键从知识树生成（横向树布局，生成到新导图） */
+async function generateFromTree(autoName){
+  const roots = $$('#tree .tnode.root').map(r=>Number(r.dataset.nodeId)).filter(n=>!isNaN(n));
+  if(!roots.length){ toast('知识树是空的'); return; }
+  const name = autoName || prompt('新导图名称', '知识树导图 ' + new Date().toLocaleDateString());
+  if(!name) return;
+  const palette = ['#2e6da4','#2e7d4f','#b06a12','#6a4c93','#0f7b8a','#a02a1e','#8a5a2b','#4a5568'];
+  const items = [], edges = [];
+  const COL = 250, ROW = 74, MIN_GAP = 8;
+  let cursorY = 40;
+
+  const rootsNodes = Object.values(state.treeMap).filter(n=>roots.indexOf(n.id) >= 0);
+  rootsNodes.sort((a,b)=>a.id-b.id);
+
+  function makeItem(node, depth, y){
+    return {
+      id: uid('i'), node_id: node.id, text: node.name,
+      x: 50 + depth * COL, y: y,
+      w: Math.max(130, Math.min(230, node.name.length * 19 + 46)), h: 50,
+      shape: depth === 0 ? 'round' : 'ellipse',
+      color: palette[depth % palette.length], fontSize: 14,
+    };
+  }
+
+  function layout(node, depth){
+    const kids = node.children || [];
+    if(!kids.length){
+      const y = cursorY;
+      cursorY += ROW + MIN_GAP;
+      const it = makeItem(node, depth, y);
+      items.push(it);
+      return {item: it, y: y + it.h/2};
+    }
+    const childResults = kids.map(k=>layout(k, depth + 1));
+    const first = childResults[0].y, last = childResults[childResults.length-1].y;
+    const mid = (first + last) / 2;
+    const it = makeItem(node, depth, mid - 25);
+    items.push(it);
+    childResults.forEach(cr=>{
+      edges.push({id: uid('e'), from: it.id, to: cr.item.id, style: 'arrow', color: '#8894a4'});
+    });
+    return {item: it, y: mid};
+  }
+
+  rootsNodes.forEach(n=>{ layout(n, 0); cursorY += 30; });
+
+  const data = {title: name, view: {x: 20, y: 20, k: 0.9}, items, edges, strokes: []};
+  try{
+    await postJSON('/api/map/new', {name});
+  }catch(e){ /* 同名则覆盖保存 */ }
+  await postJSON('/api/map/save', {name, data});
+  await refreshMapList(name);
+  await openMap(name);
+  localStorage.setItem('doclib_mm_last', name);
+  fitView();
+  toast('已按知识树生成 ' + items.length + ' 个节点');
+}
+
+$('#btnHidden').onclick = ()=>{
+  showHidden = !showHidden;
+  $('#btnHidden').classList.toggle('active', showHidden);
+  renderAll();
+  toast(showHidden ? '已显示被隐藏的节点（半透明，右键可取消隐藏）' : '已隐藏');
+};
+$('#btnFit').onclick = ()=>fitView();
+$('#btnPng').onclick = ()=>exportPng();
+$('#btnSvg').onclick = ()=>exportSvg();
+$('#btnGen').onclick = ()=>generateFromTree();
+
+/* ================= 撤销 ================= */
+function snap(){
+  return JSON.stringify({items:state.map.items, edges:state.map.edges, strokes:state.map.strokes});
+}
+function pushUndo(){
+  state.undo.push(snap());
+  if(state.undo.length > 80) state.undo.shift();
+  state.redo = [];
+}
+function redo(){
+  if(!state.redo.length){ toast('没有可重做的操作'); return; }
+  state.undo.push(snap());
+  const s2 = JSON.parse(state.redo.pop());
+  state.map.items = s2.items; state.map.edges = s2.edges; state.map.strokes = s2.strokes;
+  state.sel = null; state.selIds = []; dragging = null;
+  renderAll(); markDirty(); toast('已重做');
+}
+function undo(){
+  if(!state.undo.length){ toast('没有可撤销的操作'); return; }
+  state.redo.push(snap());
+  const st = JSON.parse(state.undo.pop());
+  state.map.items = st.items; state.map.edges = st.edges; state.map.strokes = st.strokes;
+  state.sel = null; state.selIds = []; dragging = null;
+  renderAll(); markDirty(); toast('已撤销');
+}
+
+/* ================= 键盘 ================= */
+window.addEventListener('keydown', (e)=>{
+  if($('#inline').style.display === 'block') return;
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='y'){ e.preventDefault(); redo(); return; }
+  if(e.key === 'Escape'){ state.sel = null; renderAll(); setTool('select'); return; }
+  if(e.key === 'Delete' || e.key === 'Backspace'){
+    e.preventDefault();
+    if(state.selIds.length){
+      pushUndo();
+      const ids = new Set(state.selIds);
+      state.map.items = state.map.items.filter(x=>!ids.has(x.id));
+      state.map.edges = state.map.edges.filter(e2=>!(e2.from && ids.has(e2.from)) && !(e2.to && ids.has(e2.to)));
+      state.selIds = []; state.sel = null; renderAll(); markDirty();
+      return;
+    }
+    if(!state.sel) return;
+    pushUndo();
+    if(state.sel.type==='item') eraseItem(state.sel.id);
+    else if(state.sel.type==='edge') state.map.edges = state.map.edges.filter(x=>x.id!==state.sel.id);
+    else if(state.sel.type==='stroke') state.map.strokes = state.map.strokes.filter(x=>x.id!==state.sel.id);
+    state.sel = null; renderAll(); markDirty();
+  }
+});
+
+/* ================= 保存/加载 ================= */
+let saveTimer = null;
+function markDirty(){
+  state.dirty = true; savedFlag = false;
+  setStatus('未保存', 'dirty');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 1200);
+}
+async function saveNow(){
+  if(!state.name) return;
+  clearTimeout(saveTimer);
+  setStatus('保存中…', '');
+  const payload = Object.assign({}, state.map, {view: state.view});
+  try{
+    await postJSON('/api/map/save', {name: state.name, data: payload});
+    state.dirty = false; savedFlag = true;
+    const t = new Date();
+    setStatus('已保存 ' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0'), 'saved');
+  }catch(e){ setStatus('保存失败：'+e.message, 'dirty'); }
+}
+
+async function refreshMapList(selectName){
+  const d = await api('/api/maps');
+  const sel = $('#mapSel');
+  const items = d.items || [];
+  if(!items.length){ sel.innerHTML = '<option value="">（还没有导图）</option>'; return; }
+  sel.innerHTML = items.map(x=>`<option value="${esc(x.name)}">${esc(x.title)}（${x.items}框）</option>`).join('');
+  if(selectName) sel.value = selectName;
+}
+
+async function openMap(name){
+  const d = await api('/api/map/' + encodeURIComponent(name));
+  state.name = name;
+  state.map = {items:d.items||[], edges:d.edges||[], strokes:d.strokes||[]};
+  state.view = Object.assign({x:0,y:0,k:1}, d.view||{});
+  state.sel = null; state.undo = []; state.dirty = false; savedFlag = true;
+  setStatus('已打开', 'saved');
+  renderAll();
+  $('#mapSel').value = name;
+}
+
+/* ================= 启动 ================= */
+async function boot(){
+  buildSwatches(); setTool('select');
+  await loadTree();
+  await refreshMapList();
+  const saved = localStorage.getItem('doclib_mm_last');
+  const list = $$('#mapSel option').map(o=>o.value).filter(Boolean);
+  if(list.length){
+    await openMap(saved && list.includes(saved) ? saved : list[0]);
+  }else{
+    await postJSON('/api/map/new', {name:'我的知识导图'});
+    await refreshMapList('我的知识导图');
+    await openMap('我的知识导图');
+  }
+
+  let sDrag = false;
+  $('#splitter').addEventListener('mousedown', (e)=>{ sDrag = true; document.body.style.cursor='col-resize'; e.preventDefault(); });
+  window.addEventListener('mousemove', (e)=>{
+    if(!sDrag) return;
+    const main = $('#main');
+    const total = main.clientWidth;
+    const left = clamp(e.clientX - main.getBoundingClientRect().left, 200, total*0.6);
+    const pct = Math.round(left/total*100);
+    main.style.gridTemplateColumns = pct + '% 6px ' + (100-pct) + '%';
+    localStorage.setItem('doclib_mm_split', String(pct));
+  });
+  window.addEventListener('mouseup', ()=>{ if(sDrag){ sDrag=false; document.body.style.cursor=''; } });
+  const sp = Number(localStorage.getItem('doclib_mm_split') || 30);
+  if(sp >= 20 && sp <= 60) $('#main').style.gridTemplateColumns = sp + '% 6px ' + (100-sp) + '%';
+
+  // 调试钩子：?autogen=名称 自动按知识树生成一张（便于自动化验证）
+  const qp = new URLSearchParams(location.search);
+  if(qp.get('autogen')) await generateFromTree(qp.get('autogen'));
+}
+
+/* 顶栏 */
+$('#btnHome').onclick = ()=>{ location.href = '/'; };
+$('#btnSave').onclick = ()=>saveNow();
+$('#mapSel').onchange = async (e)=>{
+  if(!e.target.value) return;
+  if(state.dirty) await saveNow();
+  localStorage.setItem('doclib_mm_last', e.target.value);
+  await openMap(e.target.value);
+};
+$('#btnNew').onclick = async ()=>{
+  const name = prompt('新导图名称', '导图 ' + new Date().toLocaleDateString());
+  if(!name) return;
+  try{
+    await postJSON('/api/map/new', {name});
+    await refreshMapList(name); await openMap(name);
+    localStorage.setItem('doclib_mm_last', name);
+    toast('已新建');
+  }catch(e){ toast('新建失败：'+e.message); }
+};
+$('#btnRename').onclick = async ()=>{
+  if(!state.name) return;
+  const nn = prompt('重命名为', state.name);
+  if(!nn || nn === state.name) return;
+  try{
+    const r = await postJSON('/api/map/rename', {name: state.name, new_name: nn});
+    state.name = r.name; state.map.title = r.name;
+    await refreshMapList(r.name);
+    localStorage.setItem('doclib_mm_last', r.name);
+    toast('已重命名');
+  }catch(e){ toast('重命名失败：'+e.message); }
+};
+$('#btnDel').onclick = async ()=>{
+  if(!state.name) return;
+  if(!confirm('删除导图「'+state.name+'」？不可恢复')) return;
+  try{
+    await postJSON('/api/map/delete', {name: state.name});
+    localStorage.removeItem('doclib_mm_last');
+    await refreshMapList();
+    const left = $$('#mapSel option').map(o=>o.value).filter(Boolean);
+    if(left.length) await openMap(left[0]);
+    else{ await postJSON('/api/map/new', {name:'我的知识导图'}); await refreshMapList('我的知识导图'); await openMap('我的知识导图'); }
+    toast('已删除');
+  }catch(e){ toast('删除失败：'+e.message); }
+};
+
+window.addEventListener('beforeunload', ()=>{
+  if(!state.dirty || !state.name) return;
+  try{
+    const blob = new Blob([JSON.stringify({name: state.name, data: Object.assign({}, state.map, {view: state.view})})],
+      {type:'application/json'});
+    navigator.sendBeacon('/api/map/save', blob);
+  }catch(e){}
+});
+
+boot().catch(e=>{
+  console.error(e);
+  setStatus('初始化失败：' + e.message, 'dirty');
+});
+</script>
+</body>
+</html>
