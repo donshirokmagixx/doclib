@@ -19,7 +19,7 @@ jobs:
         python-version: ["3.11", "3.12"]
     env:
       PYTHONUTF8: "1"
-      DOCLIB_DATA: "${{ runner.temp }}\\doclib-data"
+      DOCLIB_DATA: "${{ github.workspace }}\\.ci-data"
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
