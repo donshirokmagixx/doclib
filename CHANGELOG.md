@@ -1,3 +1,10 @@
+## V1.1.1（2026-11-18，补丁）
+
+- 修复 Python 3.10/3.11 下的语法错误：`gateway.py` 的 f-string 同引号嵌套（3.12+ 才支持）
+- 新增 GitHub Actions CI（Windows，Python 3.11/3.12：冒烟、导出、隔离、分区、引用、导图）
+- 仓库完善：README 徽章与界面预览、SECURITY.md、Release 源码包
+- 说明：V1.1.0 的 wheel/源码在 3.11 下会 ImportError，请使用 V1.1.1
+
 ﻿# 更新记录
 
 ## V1.1.0（2026-11-18，内部构建 r15）
