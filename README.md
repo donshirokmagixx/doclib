@@ -3,6 +3,7 @@
 > 当前版本 **v1.1.0（build 2026-11-18-r15）**
 > 学科示例：信号分析与处理
 > 定位：纯本地、单机、零外网依赖（除调用你自己配置的 AI 模型外），数据全部留在本机。
+> 本版新增能力：**[docs/新功能_v1.1.0.md](docs/新功能_v1.1.0.md)**
 
 [![CI](https://github.com/owen-4-R/DocLib/actions/workflows/ci.yml/badge.svg)](https://github.com/owen-4-R/DocLib/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/owen-4-R/DocLib)](https://github.com/owen-4-R/DocLib/releases)
