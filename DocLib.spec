@@ -13,6 +13,7 @@ from PyInstaller.utils.hooks import (collect_data_files, collect_dynamic_libs,
 datas = [
     ("doclib/migrations", "migrations"),
     ("doclib/web/static", "web/static"),
+    ("doclib/ai/prompts", "ai/prompts"),
 ]
 datas += collect_data_files("pypdfium2")
 datas += collect_data_files("winrt")

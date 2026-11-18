@@ -5,7 +5,7 @@ exports/
 mindmaps/
 converted/
 runtime.json
-secrets*
+data/secrets*
 *.db
 *.db-*
 *.sqlite*
@@ -33,3 +33,17 @@ Thumbs.db
 ~$*
 *.tmp
 *.log
+
+# 本地备份/发布包
+备份_*/
+*.rar
+*.zip
+*.7z
+*.bak*
+
+# 生成物
+审计报告_*.json
+审计报告_*.md
+
+# 例外：源码模块不能被 secrets* 规则误伤
+!doclib/secrets.py

@@ -136,7 +136,7 @@ def search(conn, query: str, node_id: Optional[int] = None,
            kw_weight: float = 0.7, sem_weight: float = 0.3,
            suppress_generic: bool = True, title_boost: float = 1.0,
            sem_k: int = 50, heading_boost: float = 60.0,
-           heading_idf: bool = True) -> dict:
+           heading_idf: bool = True, partition_id: Optional[int] = None) -> dict:
     """混合检索：关键词（FTS/LIKE）+ 语义（本地向量），用 RRF 融合。
 
     后面几个参数用于调参对比（默认值 = 当前线上行为），评测脚本会传不同组合。
@@ -145,7 +145,7 @@ def search(conn, query: str, node_id: Optional[int] = None,
     if not terms:
         return {"query": query, "terms": [], "total": 0, "results": [], "mode": "none"}
 
-    scope_ids = tree.node_doc_ids(conn, node_id, scope)
+    scope_ids = tree.node_doc_ids(conn, node_id, scope, partition_id)
 
     # ---------- 通道 1：关键词 ----------
     kw_order: List[int] = []
@@ -281,9 +281,10 @@ def search(conn, query: str, node_id: Optional[int] = None,
             "results": results[:limit], "mode": "hybrid" if sem_ok else "keyword"}
 
 
-def docs_in_scope(conn, node_id: Optional[int], scope: str = "subtree") -> dict:
-    """「点节点 → 列出文档」，不做关键词过滤。"""
-    scope_ids = tree.node_doc_ids(conn, node_id, scope)
+def docs_in_scope(conn, node_id: Optional[int], scope: str = "subtree",
+                  partition_id: Optional[int] = None) -> dict:
+    """「点节点 → 列出文档」，不做关键词过滤。partition_id 用于限定科目分区。"""
+    scope_ids = tree.node_doc_ids(conn, node_id, scope, partition_id)
     if scope_ids is None:
         rows = conn.execute(
             "SELECT id FROM documents WHERE deleted_at IS NULL ORDER BY title"

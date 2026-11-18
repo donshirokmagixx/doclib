@@ -11,6 +11,7 @@
     openai_compatible  —— DeepSeek / 通义 / Moonshot / OpenAI / Ollama(OpenAI 兼容)…
     ollama             —— 本地 Ollama 原生接口
 """
+import hashlib
 import json
 import time
 import urllib.error
@@ -231,7 +232,7 @@ def _log_run(conn, *, trace_id, task_type, provider, model, prompt_digest,
 def chat(conn, messages: List[dict], provider: Optional[Provider] = None,
          temperature: float = 0.2, max_tokens: int = 1024,
          timeout: int = DEFAULT_TIMEOUT, task_type: str = "chat",
-         log: bool = True) -> dict:
+         log: bool = True, prompt_version: str = "") -> dict:
     """调用一次对话补全。返回统一结构，不抛异常。"""
     trace_id = uuid.uuid4().hex[:12]
     p = provider or load_provider(conn)
@@ -244,7 +245,12 @@ def chat(conn, messages: List[dict], provider: Optional[Provider] = None,
 
     from .. import secrets
     key = secrets.get_secret(p.key_ref) if p.key_ref else None
-    digest = " ".join(str(m.get("content", "")) for m in messages)[:120]
+    _raw = " ".join(str(m.get("content", "")) for m in messages)
+    if prompt_version:
+        # 版本化指纹：p<version>:<sha16>，既能比对又不落明文提示词
+        digest = f"p{prompt_version}:{hashlib.sha256(_raw.encode("utf-8")).hexdigest()[:16]}"
+    else:
+        digest = _raw[:120]
 
     if p.kind == "ollama":
         # 本地 Ollama 原生接口

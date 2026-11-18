@@ -119,10 +119,77 @@ def subtree_ids(conn, node_id: int) -> List[int]:
     return [r["id"] for r in subtree_rows(conn, node_id)]
 
 
-def node_doc_ids(conn, node_id: Optional[int], scope: str) -> Optional[set]:
-    """返回范围内 doc_id 集合；None 表示「全库，不加限制」。"""
-    if scope == "all" or node_id is None:
+# ---------------- 科目分区（REV-101） ----------------
+# 约定：分区 = parent_id 为空且 is_system=0 的节点（一级节点）。
+# 系统节点「未分类」不算分区；二级以下节点归属其一级祖先。
+# scope=all 在带 partition_id 时表示「当前分区全范围」；
+# 不带 partition_id 时保留旧语义「全库」，供旧调用/测试兼容。
+
+
+def list_partitions(conn) -> List[dict]:
+    counts = doc_counts(conn)
+    rows = conn.execute(
+        "SELECT id, name, path FROM nodes "
+        "WHERE parent_id IS NULL AND is_system=0 AND deleted_at IS NULL "
+        "ORDER BY sort_order, id"
+    ).fetchall()
+    out = []
+    seen = set()
+    for r in rows:
+        seen.add(r["id"])
+        ids = node_doc_ids(conn, r["id"], "subtree")
+        out.append({
+            "id": r["id"], "name": r["name"],
+            "doc_count": len(ids or set()),
+            "direct_count": counts.get(r["id"], 0),
+        })
+    # 兜底：没有任何一级节点时，把「未分类」当临时分区（只用于展示）
+    if not out:
+        unc = conn.execute(
+            "SELECT id, name FROM nodes WHERE is_system=1 AND deleted_at IS NULL LIMIT 1"
+        ).fetchone()
+        if unc:
+            out.append({"id": unc["id"], "name": unc["name"],
+                        "doc_count": counts.get(unc["id"], 0),
+                        "direct_count": counts.get(unc["id"], 0), "is_system": 1})
+    return out
+
+
+def partition_of_node(conn, node_id: Optional[int]):
+    """返回节点所属分区（一级非系统节点）id；系统节点/不存在 → None。"""
+    node = get_node(conn, node_id) if node_id is not None else None
+    if node is None:
         return None
+    cur, guard = node, set()
+    while cur["parent_id"] is not None and cur["id"] not in guard:
+        guard.add(cur["id"])
+        parent = get_node(conn, cur["parent_id"])
+        if parent is None:
+            return None
+        cur = parent
+    if cur["is_system"]:
+        return None
+    return cur["id"]
+
+
+def partition_doc_ids(conn, partition_id: Optional[int]) -> set:
+    """分区内全部文档（含下级节点挂载）。partition 非法 → 空集。"""
+    if partition_id is None:
+        return set()
+    root = get_node(conn, partition_id)
+    if root is None or root["parent_id"] is not None or root["is_system"]:
+        return set()
+    rows = conn.execute(
+        "SELECT DISTINCT nd.document_id FROM node_documents nd "
+        "JOIN nodes n ON n.id = nd.node_id "
+        "JOIN documents d ON d.id = nd.document_id "
+        "WHERE n.path LIKE ? AND n.deleted_at IS NULL AND d.deleted_at IS NULL",
+        (root["path"] + "%",),
+    ).fetchall()
+    return {r[0] for r in rows}
+
+
+def _scope_doc_ids(conn, node_id: int, scope: str) -> set:
     node = get_node(conn, node_id)
     if node is None:
         return set()
@@ -141,6 +208,35 @@ def node_doc_ids(conn, node_id: Optional[int], scope: str) -> Optional[set]:
             (node["path"] + "%",),
         ).fetchall()
     return {r[0] for r in rows}
+
+
+def node_doc_ids(conn, node_id: Optional[int], scope: str,
+                 partition_id: Optional[int] = None) -> Optional[set]:
+    """返回范围内 doc_id 集合；None 表示「全库，不加限制」。
+
+    partition_id 不为 None 时：
+      · scope=all → 该分区全部文档
+      · scope=self/subtree → 节点范围 ∩ 分区
+      · node 不属于该分区 → 空集（跨分区默认拒绝）
+    partition_id 为 None → 保持旧行为（all=全库）。
+    """
+    if partition_id is not None:
+        part = partition_doc_ids(conn, partition_id)
+        if node_id is None:
+            return part if scope == "all" else set()
+        node = get_node(conn, node_id)
+        if node is None:
+            return set()
+        root = get_node(conn, partition_id)
+        if root is None or not node["path"].startswith(root["path"]):
+            return set()
+        if scope == "all":
+            return part
+        return _scope_doc_ids(conn, node_id, scope) & part
+
+    if scope == "all" or node_id is None:
+        return None
+    return _scope_doc_ids(conn, node_id, scope)
 
 
 def delete_node(conn, node_id: int) -> int:
@@ -417,7 +513,7 @@ def doc_counts(conn):
     return {r["node_id"]: r["c"] for r in rows}
 
 
-def tree_json(conn) -> List[dict]:
+def tree_json(conn, partition_id: Optional[int] = None) -> List[dict]:
     counts = doc_counts(conn)
     rows = conn.execute(
         "SELECT * FROM nodes WHERE deleted_at IS NULL ORDER BY is_system ASC, sort_order, id"
@@ -456,6 +552,9 @@ def tree_json(conn) -> List[dict]:
 
     for r in roots:
         walk(r, 0)
+    if partition_id is not None:
+        only = nodes.get(partition_id)
+        return [only] if only is not None else []
     return roots
 
 

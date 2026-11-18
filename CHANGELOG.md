@@ -1,5 +1,19 @@
 ﻿# 更新记录
 
+## V1.1.0（2026-11-18，内部构建 r15）
+
+在 V1.0.0 基础上完成第二版第一批（REV-103/101/102/104/P1）：
+
+- 会话隔离：会话只按 id 定位，不再按标题合并；`/api/ask` 校验范围；换节点/分区写回并在 `op_log` 留痕
+- 科目分区：一级节点=分区；新增 `/api/rev/{partitions,tree,docs,search,ask,import}`；树/资料/检索/问答按分区过滤；导入可限制在分区内
+- 引用真实：去掉"无引用自动补前 3 条"；没有 `[n]` 时标「资料不足」且不伪造来源；会话详情带分区
+- 资料导图：`POST /api/rev/mindmap/generate_from_docs`，模型输出 JSON 树（失败回退规则版），节点带 `sources`，导图 `version=2`
+- 提示词版本化：提示词迁到 `doclib/ai/prompts/qa_v3.txt`（`PROMPT_VERSION=3`）；`ai_runs.prompt_digest` 记为 `p3:<sha16>`
+- 体验/修复：资料导图改为同窗口打开（`?map=`）；MOTW 启动自愈；打包包含提示词目录
+- 测试：新增 `test_scope_isolation.py` / `test_partitions.py` / `test_citations.py` / `test_mindmap_gen.py`；冒烟、检索回归 21/21、导出 7 组、审计 60/60
+- 仓库修复：`.gitignore` 的 `secrets*` 曾把源码 `doclib/secrets.py` 误排除，已改为 `data/secrets*` 并补回该模块
+- 检索修复：补「时域/频域/对应关系」同义词，无语义的打包版也能通过 qa07（关键词版 21/21）
+
 ## V1.0.0（2026-11，内部构建 r13）
 
 首个公开版本，包含：

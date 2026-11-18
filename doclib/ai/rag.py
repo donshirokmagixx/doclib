@@ -12,27 +12,18 @@ import json
 from typing import Optional
 
 from .. import citations
+from .. import tree as tree_mod
 from ..db import now_ms
 from .. import search as search_mod
 from . import gateway
 
-PROMPT_VERSION = 2
+from .prompts import PROMPT_VERSION, load_qa_prompt, prompt_digest
+
 DEFAULT_TOP_K = 10
 MAX_CHUNK_CHARS = 1200
 
-SYSTEM_PROMPT = """你是个人资料库的检索助手。规则：
-1. 只能依据用户提供的「资料片段」回答，不得使用片段以外的知识。
-2. 回答用中文，简洁准确；先给结论，再给必要解释。
-3. 每个关键结论后面用方括号标注来源编号，例如 [1]、[2][3]。
-4. 如果片段不足以回答，直接说"资料中没有找到相关内容"，不要编造，也不要给出来源编号。
-5. 不要输出文件路径、不要输出 Markdown 标题层级。
-6. 如果问题前提不成立（例如把非周期信号说成"它的傅里叶级数"），先一句话指出前提问题，再给最接近的相关结论。
-7. 资料片段若是表格或公式清单，必须逐行对照后再回答，不要凭印象补充；表里没有就明说没有。
-8. 只说片段支持的内容；片段是符号写法（如 sinω0t）时，要转成中文概念（正弦）来表达。
-9. 若问「某信号的傅里叶级数/展开」，而该信号在片段里属于非周期或奇异信号（如冲激、阶跃、符号函数、单边指数），
-   先明确"不存在通常意义的傅里叶级数"，再给出片段中该信号的傅里叶变换或变换对表结论（若有）。
-10. 若问题里的术语疑似笔误（如"矩形脉冲限号"），按最接近的正确术语（矩形脉冲信号）作答，并用一句话说明你的理解。
-11. 问"性质/定理/变换对"这类清单时，按片段表格逐条列出（一行一条：名称 → 时域 → 频域），不要遗漏片段里有的条目。"""
+# 提示词正文在 doclib/ai/prompts/qa_v3.txt（REV-P1：落文件 + 版本化）
+SYSTEM_PROMPT = load_qa_prompt()
 
 
 def _cache_key(question: str, model: str, chunks) -> str:
@@ -91,6 +82,10 @@ SYNONYMS = {
     "拉普拉斯": ["拉氏"],
     "傅里叶": ["傅氏"],
     "混叠": ["混叠失真"],
+    # 口语化/压缩说法 → 教材里真正出现的词（无语义的打包版也能命中）
+    "时域频域": ["时域", "频域", "对应关系"],
+    "时域频域转换": ["时域", "频域", "对应关系", "频域转换"],
+    "频域转换": ["频域", "对应关系"],
     # —— 依据用户真实提问补充 ——
     "共轭": ["共轭对称", "conjugate", "f*"],
     "符号函数": ["sgn"],
@@ -228,7 +223,7 @@ def _is_tableish(text: str) -> bool:
 
 
 def _chunk_candidates(conn, query: str, node_id=None, scope: str = "subtree",
-                      limit: int = 5):
+                      limit: int = 5, partition_id: Optional[int] = None):
     """块级混合检索：关键词 + 语义，RRF 融合，返回块列表（同一文档可有多个块）。
 
     这是问答质量的关键：按文档去重会把「3.1 卷积定理」这类小块挤掉。
@@ -240,7 +235,7 @@ def _chunk_candidates(conn, query: str, node_id=None, scope: str = "subtree",
     vocab = _heading_vocab(conn)
     h_terms = _head_terms(kw_terms, vocab) or kw_terms
     h_long = _maximal_terms([t for t in h_terms if len(t) >= 3])   # 只保留最长片段
-    scope_ids = search_mod.tree.node_doc_ids(conn, node_id, scope)
+    scope_ids = search_mod.tree.node_doc_ids(conn, node_id, scope, partition_id)
 
     # 关键词通道
     kw_order = []
@@ -356,12 +351,30 @@ def _build_context(rows):
     return "\n\n".join(parts)
 
 
-def _get_or_create_conversation(conn, title: str, node_id=None) -> int:
-    row = conn.execute(
-        "SELECT id FROM conversations WHERE title=? ORDER BY id DESC LIMIT 1",
-        (title,)).fetchone()
-    if row:
-        return row["id"]
+VALID_SCOPES = ("self", "subtree", "all")
+
+
+def normalize_scope(scope) -> str:
+    """把前端/任务书里的写法归一：node → self（tree.node_doc_ids 的内部名是 self）。"""
+    sc = str(scope or "subtree").strip().lower()
+    if sc == "node":
+        sc = "self"
+    return sc
+
+
+def _get_or_create_conversation(conn, title: str, node_id=None,
+                               conversation_id=None) -> int:
+    """会话定位只认 id；没有 id 就新建。
+
+    历史缺陷：旧实现按 title 查重，两条不同分区、开头 24 字相同的问题会被
+    合并成同一个会话，导致追问历史串台。这里彻底移除按标题合并。
+    """
+    if conversation_id:
+        row = conn.execute("SELECT id FROM conversations WHERE id=?",
+                           (int(conversation_id),)).fetchone()
+        if row:
+            return row["id"]
+        raise ValueError("会话不存在")
     cur = conn.execute(
         "INSERT INTO conversations(title, node_id, created_at, updated_at) VALUES(?,?,?,?)",
         (title, node_id, now_ms(), now_ms()))
@@ -371,11 +384,72 @@ def _get_or_create_conversation(conn, title: str, node_id=None) -> int:
 def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtree",
         provider_name: Optional[str] = None, top_k: int = DEFAULT_TOP_K,
         max_tokens: int = 900, timeout: int = 60,
-        conversation_id: Optional[int] = None) -> dict:
+        conversation_id: Optional[int] = None,
+        partition_id: Optional[int] = None) -> dict:
     """问答主入口。返回统一结构，不抛异常。"""
     question = (question or "").strip()
     if not question:
         return {"ok": False, "error": "问题不能为空"}
+
+    # 0) 范围校验与会话范围回读（REV-103）
+    scope = normalize_scope(scope)
+    if scope not in VALID_SCOPES:
+        return {"ok": False, "error": "检索范围不合法（self / subtree / all）"}
+    if conversation_id:
+        conv = conn.execute(
+            "SELECT id, node_id, title FROM conversations WHERE id=?",
+            (int(conversation_id),)).fetchone()
+        if conv is None:
+            return {"ok": False, "error": "会话不存在"}
+        old_node = conv["node_id"]
+        if node_id is None:
+            node_id = old_node                     # 会话里记录的范围优先
+        elif old_node is None or int(node_id) != int(old_node):
+            # 显式切换范围：以本次请求为准，写回会话并留痕（op_log）
+            try:
+                conn.execute(
+                    "UPDATE conversations SET node_id=?, updated_at=? WHERE id=?",
+                    (int(node_id), now_ms(), int(conversation_id)))
+                conn.execute(
+                    "INSERT INTO op_log(op, entity, entity_id, payload, inverse, created_at)"
+                    " VALUES(?,?,?,?,?,?)",
+                    ("scope_update", "conversation", int(conversation_id),
+                     json.dumps({"from": old_node, "to": int(node_id)}, ensure_ascii=False),
+                     json.dumps({"node_id": old_node}, ensure_ascii=False), now_ms()))
+            except Exception:
+                pass
+    # 3b) 分区回读/切换：分区是"科目"这一层的过滤，跨分区必须显式传 partition_id
+    if conversation_id:
+        # 注意：上面可能已把会话切换到新节点，分区必须按“当前生效节点”重算
+        cur_node = node_id if node_id is not None else conv["node_id"]
+        conv_part = tree_mod.partition_of_node(conn, cur_node) if cur_node else None
+        if partition_id is None:
+            partition_id = conv_part
+        elif conv_part is not None and int(partition_id) != int(conv_part):
+            # 显式换分区：会话节点切到该分区根，并留痕
+            new_node = node_id if (node_id and tree_mod.partition_of_node(conn, node_id) == partition_id)                 else int(partition_id)
+            try:
+                conn.execute(
+                    "UPDATE conversations SET node_id=?, updated_at=? WHERE id=?",
+                    (new_node, now_ms(), int(conversation_id)))
+                conn.execute(
+                    "INSERT INTO op_log(op, entity, entity_id, payload, inverse, created_at)"
+                    " VALUES(?,?,?,?,?,?)",
+                    ("partition_update", "conversation", int(conversation_id),
+                     json.dumps({"from": conv_part, "to": int(partition_id)}, ensure_ascii=False),
+                     json.dumps({"partition_id": conv_part}, ensure_ascii=False), now_ms()))
+            except Exception:
+                pass
+            node_id = new_node
+    if partition_id is not None:
+        try:
+            partition_id = int(partition_id)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "分区参数不合法"}
+
+    if scope != "all" and node_id is None:
+        return {"ok": False,
+                "error": "缺少检索范围：请先选择节点；确实要全库请显式传 scope=all"}
 
     # 1) 检索：追问时把上一轮问题也拼进去，让「那余弦呢」这类省略句也能搜到料
     retrieval_query = question
@@ -388,12 +462,14 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
                 retrieval_query = prev["content"][:80] + " " + question
         except Exception:
             pass
-    chunks = _chunk_candidates(conn, retrieval_query, node_id, scope, top_k)
+    chunks = _chunk_candidates(conn, retrieval_query, node_id, scope, top_k,
+                               partition_id=partition_id)
     r = {"mode": "chunk-hybrid"}
 
     # 1b) 兜底：块级没结果时退回文档级检索
     if not chunks:
-        rd = search_mod.search(conn, question, node_id, scope, limit=top_k)
+        rd = search_mod.search(conn, question, node_id, scope, limit=top_k,
+                               partition_id=partition_id)
         r["mode"] = rd.get("mode")
         for h in rd["results"][:top_k]:
             c = search_mod.chunk_text(conn, h["chunk_id"]) if h.get("chunk_id") else None
@@ -436,7 +512,8 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
                 pass
         msgs.append({"role": "user", "content": user_msg})
         res = gateway.chat(conn, msgs, provider=prov, temperature=0.2,
-                           max_tokens=max_tokens, timeout=timeout, task_type="qa")
+                           max_tokens=max_tokens, timeout=timeout, task_type="qa",
+                           prompt_version=PROMPT_VERSION)
         if not res.get("ok"):
             return {"ok": False, "error": res.get("error", "模型调用失败"),
                     "provider": prov.name}
@@ -463,7 +540,9 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
     answer = payload.get("answer") or ""
     cited_idx = sorted({int(x) for x in __import__("re").findall(r"\[(\d+)\]", answer)
                         if 1 <= int(x) <= len(chunks)})
-    use_idx = cited_idx or list(range(1, min(3, len(chunks)) + 1))
+    # REV-102：只保存回答里真正引用到的编号；不再兜底补前 3 条（那会伪造出处）
+    use_idx = cited_idx
+    insufficient = not use_idx
 
     if conversation_id:
         conv_id = int(conversation_id)
@@ -524,5 +603,11 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
         "mode": r.get("mode"),
         "message_id": msg_id,
         "conversation_id": conv_id,
+        "node_id": node_id,
+        "scope": scope,
+        "partition_id": partition_id,
+        "citation_status": "cited" if use_idx else "none",
+        "insufficient": insufficient,
+        "notice": ("" if use_idx else "资料不足：模型回答没有引用任何原文片段，已避免伪造出处。"),
         "trace_id": payload.get("trace_id"),
     }

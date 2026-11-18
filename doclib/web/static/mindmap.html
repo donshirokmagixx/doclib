@@ -1718,10 +1718,14 @@ async function boot(){
   buildSwatches(); setTool('select');
   await loadTree();
   await refreshMapList();
+  const params = new URLSearchParams(location.search);
+  const want = params.get('map');
   const saved = localStorage.getItem('doclib_mm_last');
   const list = $$('#mapSel option').map(o=>o.value).filter(Boolean);
   if(list.length){
-    await openMap(saved && list.includes(saved) ? saved : list[0]);
+    const target = (want && list.includes(want)) ? want
+                 : (saved && list.includes(saved) ? saved : list[0]);
+    await openMap(target);
   }else{
     await postJSON('/api/map/new', {name:'我的知识导图'});
     await refreshMapList('我的知识导图');

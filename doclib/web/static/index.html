@@ -267,6 +267,8 @@ button.danger:hover{background:#fdecea; border-color:#a02a1e; color:#a02a1e}
   </div>
   <div class="actions">
     <button id="btn-map" title="打开知识导图">知识导图</button>
+    <button id="btn-map-docs" title="用当前分区/节点的资料生成一张可编辑导图">资料导图</button>
+    <select id="partition-pick" title="科目分区（按分区过滤知识树、资料、检索与问答）" style="max-width:170px"></select>
     <select id="model-pick" title="当前使用的 AI 模型（免费/付费可切换）" style="max-width:190px"></select>
     <button id="btn-import">导入 Word</button>
     <button id="btn-recycle">回收站</button>
@@ -353,7 +355,7 @@ const api = async (path, opt) => {
   if (j && j.error) throw new Error(j.error);
   return j;
 };
-let state = { nodeId:null, scope:'subtree', query:'', tree:[], currentDoc:null };
+let state = { nodeId:null, scope:'subtree', query:'', tree:[], currentDoc:null, partition:null };
 
 function toast(msg, ms=2200){
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -413,8 +415,30 @@ function renderTree(){
   root.appendChild(ul);
 }
 
+async function loadPartitions(){
+  try{
+    const d = await api('/api/rev/partitions');
+    const sel = $('#partition-pick');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">全部科目</option>' +
+      (d.items||[]).map(p=>`<option value="${p.id}">${esc(p.name)}（${p.doc_count||0}）</option>`).join('');
+    sel.value = state.partition ? String(state.partition) : '';
+    sel.onchange = async ()=>{
+      state.partition = sel.value ? Number(sel.value) : null;
+      state.query = '';
+      await loadTree();
+      if(state.partition){
+        await selectNode(state.partition);
+      }else{
+        const nid = state.tree.length ? state.tree[0].id : null;
+        if(nid) await selectNode(nid); else await loadDocs();
+      }
+    };
+  }catch(e){ /* 分区接口不可用时保持旧界面 */ }
+}
+
 async function loadTree(){
-  const d = await api('/api/tree');
+  const d = await api(state.partition ? `/api/rev/tree?partition=${state.partition}` : '/api/tree');
   state.tree = d.tree;
   renderTree();
   const s = d.stats || {};
@@ -842,9 +866,10 @@ async function loadDocs(){
   const sc = state.scope;
   let qs = `?scope=${sc}` + (state.nodeId?`&node=${state.nodeId}`:'');
   if(!state.nodeId && sc!=='all'){ qs = '?scope=all'; }
+  if(state.partition){ qs += `&partition=${state.partition}`; }
   box.innerHTML = '<div class="empty"><span class="spin"></span>载入中…</div>';
   try{
-    const d = await api('/api/docs'+qs);
+    const d = await api((state.partition ? '/api/rev/docs' : '/api/docs') + qs);
     $('#list-head .grow').textContent = state.nodeId ? '本节点范围内的文档' : '全部文档';
     $('#list-count').textContent = d.total ? `${d.total} 份` : '';
     if(!d.total){
@@ -866,8 +891,9 @@ async function doSearch(){
   const box = $('#list-body');
   box.innerHTML = '<div class="empty"><span class="spin"></span>搜索中…</div>';
   let qs = `?q=${encodeURIComponent(q)}&scope=${state.scope}` + (state.nodeId?`&node=${state.nodeId}`:'');
+  if(state.partition){ qs += `&partition=${state.partition}`; }
   try{
-    const d = await api('/api/search'+qs);
+    const d = await api((state.partition ? '/api/rev/search' : '/api/search') + qs);
     $('#list-head .grow').textContent = `搜索「${q}」`;
     $('#list-count').textContent = d.total ? `${d.total} 份` : '';
     if(!d.total){
@@ -957,8 +983,8 @@ $('#mask').onclick = e=>{ if(e.target.id==='mask') closeModal(); };
 async function runImport(payload){
   showModal('导入中…', `<p><span class="spin"></span>正在解析并建立索引，文件多时请稍等片刻…</p>`, '');
   try{
-    const r = await api('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)});
+    const r = await api((state.partition ? '/api/rev/import' : '/api/import'),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...payload, partition: state.partition || null})});
     if(r.cancelled){ closeModal(); toast('已取消'); return; }
     const rows = (r.items||[]).map(it=>{
       const cls = it.status==='imported'?'ok':it.status==='updated'?'up':it.status==='failed'?'fail':'skip';
@@ -1511,6 +1537,12 @@ async function loadConversation(cid){
   try{
     const d = await api('/api/conv/detail/' + cid);
     if(!d.ok){ toast(d.error || '读取失败'); return; }
+    if(d.conversation && d.conversation.partition_id &&
+       Number(d.conversation.partition_id) !== Number(state.partition)){
+      state.partition = Number(d.conversation.partition_id);
+      await loadPartitions();
+      await loadTree();
+    }
     qaConvId = cid;
     const box = $('#qa-answer');
     box.style.display = 'block';
@@ -1617,10 +1649,11 @@ async function askAI(){
   $('#qa-meta').textContent = '';
   try{
     const follow = $('#qa-follow') && $('#qa-follow').checked;
-    const r = await api('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r = await api((state.partition ? '/api/rev/ask' : '/api/ask'),{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         question: q,
         node: state.nodeId || null,
+        partition: state.partition || null,
         scope: $('#scope').value,
         conversation_id: (follow && qaConvId) ? qaConvId : null,
       })});
@@ -1646,7 +1679,10 @@ async function askAI(){
       <button class="qa-src" data-idx="${i}" data-chunk="${x.chunk_id||''}">
         <b>[${x.index}]</b> ${esc(x.title)}${x.heading_path ? ' › ' + esc(x.heading_path) : ''}
       </button>`).join('');
-    box.innerHTML = `<div>${txt}</div>` + (srcs ? `<h5>来源（点击预览）</h5>${srcs}` : '');
+    const notice = r.insufficient
+      ? `<div class="tag fail" style="margin:8px 0;display:inline-block">${esc(r.notice || '资料不足：没有可引用的原文片段')}</div>`
+      : '';
+    box.innerHTML = `<div>${txt}</div>` + notice + (srcs ? `<h5>来源（点击预览）</h5>${srcs}` : '');
     box.querySelectorAll('.qa-src').forEach(b=>{
       b.onclick = ()=>{ const cid = b.dataset.chunk; if(cid) showChunk(Number(cid)); };
     });
@@ -1668,6 +1704,20 @@ $('#btn-recycle').onclick = openRecycle;
 $('#btn-backup').onclick = doBackup;
 $('#btn-settings').onclick = openSettings;
 $('#btn-map').onclick = ()=>{ location.href = '/mindmap.html'; };
+$('#btn-map-docs').onclick = async ()=>{
+  if(!state.nodeId && !state.partition){ toast('先在左侧选一个分区或节点'); return; }
+  toast('正在按资料生成导图（模型可用时约 2–5 秒）…', 3000);
+  try{
+    const r = await api('/api/rev/mindmap/generate_from_docs',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node: state.nodeId||null, scope: state.scope||'subtree',
+                           partition: state.partition||null})});
+    if(!r.ok){ toast(r.error || '生成失败'); return; }
+    localStorage.setItem('doclib_mm_last', r.name);
+    if(r.warning) toast(r.warning, 4500);
+    location.href = '/mindmap.html?map=' + encodeURIComponent(r.name);
+  }catch(e){ toast('生成失败：' + e.message, 4000); }
+};
 $('#qa-go').onclick = askAI;
 function pickedMsgIds(){
   const box = $('#qa-answer');
@@ -1766,7 +1816,10 @@ async function boot(){
   const p = new URLSearchParams(location.search);
   const q = p.get('q'), node = p.get('node'), chunk = p.get('chunk');
   const conv = p.get('conv');   // 深链：/ ?conv=30 直接打开某个会话
+  const part = p.get('partition');
+  if(part){ state.partition = Number(part) || null; }
 
+  await loadPartitions();
   await loadTree();
   await refreshModelPicker();
   const nid = node ? Number(node) : (state.tree.length ? state.tree[0].id : null);

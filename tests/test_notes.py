@@ -110,7 +110,9 @@ def main():
             "AND m.role='assistant' GROUP BY c.id ORDER BY c.id DESC LIMIT 2")]
         if len(ids) >= 2:
             with tempfile.TemporaryDirectory() as td:
-                rb = notes.export_batch(conn3, ids, out_dir=td, mode="outline", title="合并测试")
+                # 用 group="conv" 明确“每个会话一章”，避免按知识树归章时被合并
+                rb = notes.export_batch(conn3, ids, out_dir=td, mode="outline",
+                                        title="合并测试", group="conv")
                 assert rb.get("ok"), rb
                 check_docx(Path(rb["path"]).read_bytes(), must_have=("合并测试", "一、速览要点"))
                 assert rb["chapters"] == 2, rb

@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .. import citations, config, db, importer, mindmap, picker, search, seed, system, tree
 
 STATIC = config.STATIC_DIR
-APP_BUILD = "2026-11-15-r13"
+APP_BUILD = "2026-11-18-r15"
 
 
 MAX_BODY_BYTES = 32 * 1024 * 1024          # 32MB，足够大文档导入请求
@@ -110,6 +110,11 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
         if method == "GET" and path == "/api/health":
             h = system.health(conn)
             h["build"] = APP_BUILD
+            try:
+                from ..ai import prompts as _prompts
+                h["prompt_version"] = _prompts.PROMPT_VERSION
+            except Exception:
+                pass
             return h
 
         if method == "GET" and path == "/api/tree":
@@ -136,6 +141,31 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
             node_id = int(node) if node not in (None, "", "null") else None
             scope = (query.get("scope", ["subtree"])[0]) or "subtree"
             return search.search(conn, q, node_id, scope)
+
+        # ---------- REV-101：科目分区（新路由，不动旧路由） ----------
+        if method == "GET" and path == "/api/rev/partitions":
+            parts = tree.list_partitions(conn)
+            default = next((p["id"] for p in parts if p.get("doc_count")),
+                           parts[0]["id"] if parts else None)
+            return {"ok": True, "items": parts, "default": default}
+
+        if method == "GET" and path == "/api/rev/tree":
+            part = _as_int(query.get("partition", [None])[0])
+            return {"tree": tree.tree_json(conn, part), "stats": search.stats(conn),
+                    "partition": part}
+
+        if method == "GET" and path == "/api/rev/docs":
+            node_id = _as_int(query.get("node", [None])[0])
+            scope = (query.get("scope", ["subtree"])[0]) or "subtree"
+            part = _as_int(query.get("partition", [None])[0])
+            return search.docs_in_scope(conn, node_id, scope, partition_id=part)
+
+        if method == "GET" and path == "/api/rev/search":
+            q = (query.get("q", [""])[0] or "").strip()
+            node_id = _as_int(query.get("node", [None])[0])
+            scope = (query.get("scope", ["subtree"])[0]) or "subtree"
+            part = _as_int(query.get("partition", [None])[0])
+            return search.search(conn, q, node_id, scope, partition_id=part)
 
         # 注意：必须限定 GET，否则 POST /api/doc/mount 会被这里抢走（曾导致
         # 「挂载失败：invalid literal for int() with base 10: 'mount'」）
@@ -217,12 +247,113 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
                 if not q:
                     return {"ok": False, "error": "问题不能为空"}
                 node = _as_int(body.get("node"))
-                scope = str(body.get("scope") or "subtree")
+                scope = str(body.get("scope") or "subtree").strip().lower()
+                if scope == "node":          # 兼容任务书写法
+                    scope = "self"
+                if scope not in ("self", "subtree", "all"):
+                    return {"ok": False, "error": "检索范围不合法（self / subtree / all）"}
+                cid = _as_int(body.get("conversation_id"))
+                if scope != "all" and node is None and not cid:
+                    return {"ok": False,
+                            "error": "缺少检索范围：请先选择节点；确实要全库请显式传 scope=all"}
                 rep = rag.ask(conn, q, node, scope,
                               provider_name=body.get("provider") or None,
                               top_k=_as_int(body.get("top_k")) or rag.DEFAULT_TOP_K,
-                              conversation_id=_as_int(body.get("conversation_id")) or None)
+                              conversation_id=cid)
                 return rep
+
+            if path == "/api/rev/mindmap/generate_from_docs":
+                from .. import mindmap_gen
+                node = _as_int(body.get("node"))
+                scope = str(body.get("scope") or "subtree").strip().lower()
+                if scope == "node":
+                    scope = "self"
+                if scope not in ("self", "subtree", "all"):
+                    return {"ok": False, "error": "检索范围不合法（self / subtree / all）"}
+                part = _as_int(body.get("partition"))
+                doc_ids = body.get("doc_ids")
+                if doc_ids is not None and not isinstance(doc_ids, list):
+                    return {"ok": False, "error": "doc_ids 需要是数组"}
+                if not node and not part and not doc_ids:
+                    return {"ok": False, "error": "请先选择分区/节点，或指定 doc_ids"}
+                return mindmap_gen.generate(
+                    conn, node_id=node, scope=scope, partition_id=part,
+                    doc_ids=doc_ids, title=str(body.get("title") or ""),
+                    provider_name=body.get("provider") or None,
+                    timeout=_as_int(body.get("timeout")) or 90)
+
+            if path == "/api/rev/ask":
+                from ..ai import rag
+                q = str(body.get("question") or "").strip()
+                if not q:
+                    return {"ok": False, "error": "问题不能为空"}
+                node = _as_int(body.get("node"))
+                scope = str(body.get("scope") or "subtree").strip().lower()
+                if scope == "node":
+                    scope = "self"
+                if scope not in ("self", "subtree", "all"):
+                    return {"ok": False, "error": "检索范围不合法（self / subtree / all）"}
+                part = _as_int(body.get("partition"))
+                cid = _as_int(body.get("conversation_id"))
+                if part is None and scope != "all" and node is None and not cid:
+                    return {"ok": False,
+                            "error": "缺少检索范围：请选择分区/节点，或显式使用 scope=all"}
+                rep = rag.ask(conn, q, node, scope,
+                              provider_name=body.get("provider") or None,
+                              top_k=_as_int(body.get("top_k")) or rag.DEFAULT_TOP_K,
+                              conversation_id=cid, partition_id=part)
+                return rep
+
+            if path == "/api/rev/import":
+                part = _as_int(body.get("partition"))
+                mode = str(body.get("mode") or "").strip()
+                paths = []
+                if mode in ("folder", "files"):
+                    got = picker.pick("folder" if mode == "folder" else "files")
+                    if not got.get("ok"):
+                        return {"ok": False, "error": got.get("error") or "无法打开选择窗口"}
+                    paths = got.get("paths") or []
+                    if not paths:
+                        return {"ok": False, "cancelled": True, "error": "已取消选择"}
+                else:
+                    p = str(body.get("path") or "").strip().strip('"')
+                    if not p:
+                        return {"ok": False, "error": "请填写路径，或点「浏览」选择"}
+                    import pathlib as _pl
+                    if not _pl.Path(p).exists():
+                        return {"ok": False, "error": f"路径不存在：{p}"}
+                    ext = _pl.Path(p).suffix.lower()
+                    allowed = {".docx", ".doc", ".pdf", ".pptx", ".ppt",
+                               ".md", ".txt", ".markdown"}
+                    if _pl.Path(p).is_file() and ext not in allowed:
+                        return {"ok": False,
+                                "error": f"不支持的文件类型：{ext or '未知'}（仅 Word/PDF/PPT/Markdown/TXT）"}
+                    paths = [p]
+                merged = {"scanned": 0, "imported": 0, "updated": 0,
+                          "unchanged": 0, "failed": 0, "items": []}
+                for p in paths:
+                    rep = importer.import_path(conn, p, mount_mode="auto")
+                    for k in ("scanned", "imported", "updated", "unchanged", "failed"):
+                        merged[k] += rep[k]
+                    merged["items"].extend(rep["items"])
+                merged["relocated"] = sum(
+                    1 for it in merged["items"] if it.get("status") == "relocated")
+                # 分区约束：挂在分区外的文档，收回到该分区根
+                confined = 0
+                if part is not None:
+                    for it in merged["items"]:
+                        did = it.get("doc_id")
+                        if not did:
+                            continue
+                        rows = conn.execute(
+                            "SELECT node_id FROM node_documents WHERE document_id=?",
+                            (did,)).fetchall()
+                        if any(tree.partition_of_node(conn, r["node_id"]) != part for r in rows):
+                            importer.set_doc_nodes(conn, int(did), [part])
+                            confined += 1
+                merged["partition"] = part
+                merged["confined"] = confined
+                return {"ok": True, **merged}
 
             if path == "/api/ai/test":
                 from ..ai import gateway
@@ -667,7 +798,10 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
                                   "snippet": cr["snippet"], "drifted": False})
                 d["citations"] = cites
                 msgs.append(d)
-            return {"ok": True, "conversation": dict(c), "messages": msgs}
+            conv = dict(c)
+            conv["partition_id"] = (tree.partition_of_node(conn, conv.get("node_id"))
+                                    if conv.get("node_id") else None)
+            return {"ok": True, "conversation": conv, "messages": msgs}
 
         if method == "GET" and path == "/api/maps":
             return {"items": mindmap.list_maps(), "dir": str(mindmap.root_dir())}
