@@ -4,7 +4,20 @@
 > 学科示例：信号分析与处理
 > 定位：纯本地、单机、零外网依赖（除调用你自己配置的 AI 模型外），数据全部留在本机。
 
+[![CI](https://github.com/owen-4-R/DocLib/actions/workflows/ci.yml/badge.svg)](https://github.com/owen-4-R/DocLib/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/owen-4-R/DocLib)](https://github.com/owen-4-R/DocLib/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](requirements.txt)
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)](#)
+
+
 ---
+
+## 界面预览
+
+| 主界面（科目分区 + 资料导图入口） | 知识导图（同窗口打开） |
+|---|---|
+| ![主界面](docs/screenshots/main.png) | ![知识导图](docs/screenshots/mindmap.png) |
 
 ## 一、它能做什么
 
