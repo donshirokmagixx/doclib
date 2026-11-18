@@ -248,7 +248,8 @@ def chat(conn, messages: List[dict], provider: Optional[Provider] = None,
     _raw = " ".join(str(m.get("content", "")) for m in messages)
     if prompt_version:
         # 版本化指纹：p<version>:<sha16>，既能比对又不落明文提示词
-        digest = f"p{prompt_version}:{hashlib.sha256(_raw.encode("utf-8")).hexdigest()[:16]}"
+        raw_hash = hashlib.sha256(_raw.encode("utf-8")).hexdigest()[:16]
+        digest = f"p{prompt_version}:{raw_hash}"
     else:
         digest = _raw[:120]
 
