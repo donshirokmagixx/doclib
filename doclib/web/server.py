@@ -14,11 +14,35 @@ import traceback
 import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from .. import citations, config, db, importer, mindmap, picker, search, seed, system, tree
 
 STATIC = config.STATIC_DIR
 APP_BUILD = "2026-11-19-r16"
+
+# 显式 MIME：Windows 注册表不可靠，且 .js 必须稳定为 application/javascript
+MIME = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "application/javascript",
+    ".mjs": "application/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
+    ".pdf": "application/pdf",
+    ".txt": "text/plain; charset=utf-8",
+    ".md": "text/markdown; charset=utf-8",
+}
 
 
 MAX_BODY_BYTES = 32 * 1024 * 1024          # 32MB，足够大文档导入请求
@@ -108,6 +132,10 @@ def _as_int(v):
 def api_dispatch(method: str, path: str, query: dict, body: dict):
     conn = _conn()
     try:
+        if path.startswith("/api/v2/"):
+            from . import api_v2
+            return api_v2.dispatch(conn, method, path, query, body)
+
         if method == "GET" and path == "/api/health":
             h = system.health(conn)
             h["build"] = APP_BUILD
@@ -190,7 +218,7 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
                     "documents": importer.list_deleted_documents(conn)}
 
         if method == "GET" and path == "/api/maintenance":
-            from .. import citations, secrets, versioning
+            from .. import secrets, versioning
             outdated = importer.outdated_documents(conn)
             low = conn.execute(
                 "SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL AND quality < 0.6"
@@ -254,13 +282,14 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
                 if scope not in ("self", "subtree", "all"):
                     return {"ok": False, "error": "检索范围不合法（self / subtree / all）"}
                 cid = _as_int(body.get("conversation_id"))
-                if scope != "all" and node is None and not cid:
+                if scope != "all" and node is None and not cid and not body.get("context"):
                     return {"ok": False,
                             "error": "缺少检索范围：请先选择节点；确实要全库请显式传 scope=all"}
                 rep = rag.ask(conn, q, node, scope,
                               provider_name=body.get("provider") or None,
                               top_k=_as_int(body.get("top_k")) or rag.DEFAULT_TOP_K,
-                              conversation_id=cid)
+                              conversation_id=cid,
+                              context=body.get("context"))
                 return rep
 
             if path == "/api/rev/mindmap/generate_from_docs":
@@ -296,13 +325,15 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
                     return {"ok": False, "error": "检索范围不合法（self / subtree / all）"}
                 part = _as_int(body.get("partition"))
                 cid = _as_int(body.get("conversation_id"))
-                if part is None and scope != "all" and node is None and not cid:
+                if part is None and scope != "all" and node is None and not cid \
+                        and not body.get("context"):
                     return {"ok": False,
                             "error": "缺少检索范围：请选择分区/节点，或显式使用 scope=all"}
                 rep = rag.ask(conn, q, node, scope,
                               provider_name=body.get("provider") or None,
                               top_k=_as_int(body.get("top_k")) or rag.DEFAULT_TOP_K,
-                              conversation_id=cid, partition_id=part)
+                              conversation_id=cid, partition_id=part,
+                              context=body.get("context"))
                 return rep
 
             if path == "/api/rev/import":
@@ -878,7 +909,7 @@ class Handler(BaseHTTPRequestHandler):
             sys.stderr.write("[web] " + fmt % args + "\n")
 
     def _send(self, code: int, payload, ctype="application/json; charset=utf-8",
-              filename: str = ""):
+              filename: str = "", extra_headers: dict | None = None):
         if isinstance(payload, (dict, list)):
             data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         else:
@@ -886,10 +917,14 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", (extra_headers or {}).get("Cache-Control", "no-store"))
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
         self.send_header("Referrer-Policy", "no-referrer")
+        for k, v in (extra_headers or {}).items():
+            if str(k).lower() == "cache-control":
+                continue
+            self.send_header(str(k), str(v))
         if filename:
             import urllib.parse as _up
             self.send_header(
@@ -904,17 +939,105 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_static(self, rel: str):
         rel = rel.lstrip("/") or "index.html"
         target = (STATIC / rel).resolve()
-        if not str(target).startswith(str(STATIC.resolve())) or not target.exists():
+        inside = str(target).startswith(str(STATIC.resolve()))
+        if not inside:
             target = STATIC / "index.html"
-        ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+        if not target.exists():
+            # 静态资源缺失返回 404；只有无扩展名的应用路径回落 index
+            if "." in Path(rel).name:
+                self._send(404, {"ok": False, "error": "not found"})
+                return
+            target = STATIC / "index.html"
+        ctype = MIME.get(target.suffix.lower()) or mimetypes.guess_type(str(target))[0] \
+            or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript",):
             ctype += "; charset=utf-8"
-        self._send(200, target.read_bytes(), ctype)
+        headers = {"Cache-Control": "no-store"}
+        if target.name in ("index.html", "mindmap.html"):
+            if target.name == "mindmap.html":
+                # 旧画板仍有内联脚本；Phase 1 只做嵌入，不重写它
+                headers["Content-Security-Policy"] = (
+                    "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+                    "font-src 'self'; connect-src 'self'; frame-ancestors 'self'; "
+                    "object-src 'none'; base-uri 'none'; form-action 'none'")
+            else:
+                headers["Content-Security-Policy"] = (
+                    "default-src 'self'; script-src 'self'; "
+                    "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+                    "font-src 'self'; connect-src 'self'; frame-src 'self'; "
+                    "frame-ancestors 'self'; object-src 'none'; base-uri 'none'; "
+                    "form-action 'none'")
+        self._send(200, target.read_bytes(), ctype, extra_headers=headers)
+
+    def _serve_doc_file(self, path: str):
+        """本地文档原文流（PDF/图片等），支持 Range；只允许 DB 内文档 id。"""
+        try:
+            did = int(path.rsplit("/", 1)[-1])
+        except ValueError:
+            self._send(400, {"ok": False, "error": "文档 id 不合法"})
+            return
+        from .. import reader
+        conn = db.open_db()
+        try:
+            info = reader.resolve_file(conn, did)
+        except Exception:
+            info = None
+        finally:
+            conn.close()
+        if not info:
+            self._send(404, {"ok": False, "error": "文件不存在"})
+            return
+        fpath, ctype, name = info
+        try:
+            fpath = Path(fpath)
+            size = fpath.stat().st_size
+        except Exception:
+            self._send(404, {"ok": False, "error": "文件不存在"})
+            return
+        import urllib.parse as _up
+        headers = {
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "private, max-age=0",
+            "Content-Disposition": "inline; filename*=UTF-8''" + _up.quote(name),
+        }
+        rng = self.headers.get("Range")
+        if rng:
+            try:
+                start, end = reader.parse_range(rng, size)
+            except ValueError:
+                self._send(416, {"ok": False, "error": "Range 不合法"},
+                           extra_headers={"Content-Range": f"bytes */{size}"})
+                return
+            if start is not None:
+                length = end - start + 1
+                with fpath.open("rb") as f:
+                    f.seek(start)
+                    data = f.read(length)
+                headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+                self.send_response(206)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(data)))
+                for k, v in headers.items():
+                    self.send_header(k, v)
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("X-Frame-Options", "SAMEORIGIN")
+                self.end_headers()
+                try:
+                    self.wfile.write(data)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                return
+        data = fpath.read_bytes()
+        self._send(200, data, ctype, extra_headers=headers)
 
     def do_GET(self):  # noqa: N802
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/api/") and (not _host_ok(self) or _cross_site(self)):
             self._send(403, {"ok": False, "error": "请求来源被拒绝"})
+            return
+        if parsed.path.startswith("/api/v2/file/"):
+            self._serve_doc_file(parsed.path)
             return
         if parsed.path == "/favicon.ico":
             self._send(204, b"", "image/x-icon")

@@ -1898,5 +1898,44 @@ boot().catch(e=>{
   setStatus('初始化失败：' + e.message, 'dirty');
 });
 </script>
+<style id="doclib-embed-style">
+body.embed header{display:none}
+body.embed main{height:100vh;min-height:0}
+body.embed{background:var(--bg)}
+body.embed #right{background:var(--bg)}
+body.embed #splitter{background:var(--line)}
+body.embed #mini{background:rgba(20,27,23,.90);border-color:var(--line)}
+body.embed #ctx{background:var(--panel);border-color:var(--line)}
+body.embed.dark{
+  --ink:#E6E8E1; --sub:#A7B1A9; --line:#28312B; --line2:#1F2823;
+  --accent:#8FB6A2; --accent2:#A8C9B8; --accent-soft:#1E2C25;
+  --bg:#0F1512; --panel:#141B17; --ok:#8FB6A2; --warn:#C9A15E; --danger:#D07A68;
+}
+body.embed.dark #left{background:var(--panel)}
+body.embed.dark button,body.embed.dark .tool,body.embed.dark .tnode .cnt{
+  background:var(--panel-2,#19211D);color:var(--ink);border-color:var(--line)
+}
+body.embed.dark #mapSel{background:var(--panel-2,#19211D);color:var(--ink);border-color:var(--line)}
+body.embed.dark .tool.active{background:var(--accent);border-color:var(--accent);color:#0F1512}
+body.embed.dark .tnode:hover{background:var(--accent-soft)}
+body.embed.dark .tnode.root{color:var(--accent)}
+body.embed.dark #empty-tip{color:var(--sub)}
+body.embed.dark #mini{background:rgba(20,27,23,.90)}
+body.embed.dark #ctx .ci{color:var(--ink)}
+body.embed.dark #ctx .ci:hover{background:var(--accent-soft);color:var(--accent)}
+body.embed.dark #marquee{border-color:var(--accent2);background:rgba(143,182,162,.08)}
+</style>
+<script>
+(function(){
+  try{
+    var qs = new URLSearchParams(location.search);
+    if(qs.get('embed') === '1'){
+      document.body.classList.add('embed');
+      if(qs.get('theme') === 'dark') document.body.classList.add('dark');
+      else if(qs.get('theme') === 'light') document.body.classList.remove('dark');
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>

@@ -12,6 +12,7 @@ import json
 from typing import Optional
 
 from .. import citations
+from .. import context as context_mod
 from .. import tree as tree_mod
 from ..db import now_ms
 from .. import search as search_mod
@@ -22,18 +23,20 @@ from .prompts import PROMPT_VERSION, load_qa_prompt, prompt_digest
 DEFAULT_TOP_K = 10
 MAX_CHUNK_CHARS = 1200
 
-# 提示词正文在 doclib/ai/prompts/qa_v3.txt（REV-P1：落文件 + 版本化）
+# 提示词正文在 doclib/ai/prompts/qa_v4.txt（v2.0：上下文/选文/笔记规则）
 SYSTEM_PROMPT = load_qa_prompt()
 
 
-def _cache_key(question: str, model: str, chunks) -> str:
+def _cache_key(question: str, model: str, chunks, context=None) -> str:
     raw = {
         "q": question.strip(),
         "model": model,
         "pv": PROMPT_VERSION,
-        "chunks": [(c["chunk_id"], citations.text_hash(c["text"])) for c in chunks],
+        "ctx": context or {},
+        "chunks": [(c.get("source_kind", "document"), c.get("note_id"),
+                    c.get("chunk_id"), citations.text_hash(c["text"])) for c in chunks],
     }
-    return hashlib.sha256(json.dumps(raw, ensure_ascii=False).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(raw, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
 # 问句里的功能词/疑问词：去掉它们，剩下的才是检索词
@@ -223,10 +226,12 @@ def _is_tableish(text: str) -> bool:
 
 
 def _chunk_candidates(conn, query: str, node_id=None, scope: str = "subtree",
-                      limit: int = 5, partition_id: Optional[int] = None):
+                      limit: int = 5, partition_id: Optional[int] = None,
+                      doc_ids: Optional[set] = None):
     """块级混合检索：关键词 + 语义，RRF 融合，返回块列表（同一文档可有多个块）。
 
     这是问答质量的关键：按文档去重会把「3.1 卷积定理」这类小块挤掉。
+    doc_ids 不为 None 时，只在给定文档集合内检索（文档/选文上下文）。
     """
     terms = question_terms(query)
     if not terms:
@@ -236,6 +241,9 @@ def _chunk_candidates(conn, query: str, node_id=None, scope: str = "subtree",
     h_terms = _head_terms(kw_terms, vocab) or kw_terms
     h_long = _maximal_terms([t for t in h_terms if len(t) >= 3])   # 只保留最长片段
     scope_ids = search_mod.tree.node_doc_ids(conn, node_id, scope, partition_id)
+    if doc_ids is not None:
+        doc_set = {int(x) for x in doc_ids}
+        scope_ids = doc_set if scope_ids is None else (scope_ids & doc_set)
 
     # 关键词通道
     kw_order = []
@@ -340,14 +348,73 @@ def _chunk_candidates(conn, query: str, node_id=None, scope: str = "subtree",
     return out
 
 
-def _build_context(rows):
+def _note_candidates(conn, query: str, partition_id=None, note_id=None, limit: int = 5):
+    """笔记块检索（note_fts trigram + 短词 LIKE），返回与 doc chunk 同形的条目。"""
+    terms = question_terms(query)
+    if not terms:
+        return []
+    kw_terms = expand_terms(terms)
+    long_terms = [t for t in kw_terms if len(t) >= 3]
+    short_terms = [t for t in kw_terms if len(t) < 3]
+    ids = []
+    if long_terms:
+        fts_q = " OR ".join('"%s"' % t.replace('"', '""') for t in long_terms)
+        try:
+            ids += [r[0] for r in conn.execute(
+                "SELECT nc.id FROM note_fts JOIN note_chunks nc ON nc.id = note_fts.rowid "
+                "WHERE note_fts MATCH ? ORDER BY bm25(note_fts) LIMIT 120",
+                (fts_q,)).fetchall()]
+        except Exception:
+            pass
+    for t in short_terms:
+        pat = f"%{search_mod._like_escape(t)}%"
+        try:
+            ids += [r[0] for r in conn.execute(
+                "SELECT id FROM note_chunks WHERE text LIKE ? ESCAPE '\\' "
+                "OR heading_path LIKE ? ESCAPE '\\' LIMIT 80", (pat, pat)).fetchall()]
+        except Exception:
+            pass
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        return []
+    qs = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT nc.id, nc.note_id, nc.heading_path, nc.text, n.title, n.partition_id "
+        f"FROM note_chunks nc JOIN notes n ON n.id=nc.note_id "
+        f"WHERE nc.id IN ({qs}) AND n.deleted_at IS NULL", ids).fetchall()
+    out = []
+    for rank, cid in enumerate(ids):
+        r = next((x for x in rows if x["id"] == cid), None)
+        if r is None:
+            continue
+        if note_id is not None and int(r["note_id"]) != int(note_id):
+            continue
+        if note_id is None and partition_id is not None and r["partition_id"] is not None \
+                and int(r["partition_id"]) != int(partition_id):
+            continue
+        out.append({
+            "chunk_id": r["id"], "doc_id": 0, "note_id": r["note_id"],
+            "title": r["title"], "heading_path": r["heading_path"],
+            "text": r["text"], "score": round(0.55 * 1000.0 / (1 + rank), 2),
+            "source_kind": "note",
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _build_context(rows, context=None):
     parts = []
+    if context and context.get("label"):
+        parts.append(f"【检索范围】{context['label']}")
     for i, r in enumerate(rows, 1):
+        kind = r.get("source_kind") or "document"
+        suffix = "（你的笔记）" if kind == "note" else ("（用户选中的文字）" if kind == "selection" else "")
         head = f"《{r['title']}》"
         if r.get("heading_path"):
             head += f" › {r['heading_path']}"
         text = (r["text"] or "")[:MAX_CHUNK_CHARS]
-        parts.append(f"[{i}] {head}\n{text}")
+        parts.append(f"[{i}] {head}{suffix}\n{text}")
     return "\n\n".join(parts)
 
 
@@ -360,6 +427,23 @@ def normalize_scope(scope) -> str:
     if sc == "node":
         sc = "self"
     return sc
+
+
+def _public_context(ctx):
+    """只返回可给前端/写库的字段，不回传内部对象。"""
+    if not ctx:
+        return None
+    return {
+        "kind": ctx.get("kind"),
+        "partition_id": ctx.get("partition_id"),
+        "node_id": ctx.get("node_id"),
+        "doc_id": ctx.get("doc_id"),
+        "note_id": ctx.get("note_id"),
+        "chunk_id": ctx.get("chunk_id"),
+        "quote": (ctx.get("quote") or "")[:8000],
+        "heading_path": ctx.get("heading_path") or "",
+        "label": ctx.get("label") or "",
+    }
 
 
 def _get_or_create_conversation(conn, title: str, node_id=None,
@@ -385,11 +469,28 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
         provider_name: Optional[str] = None, top_k: int = DEFAULT_TOP_K,
         max_tokens: int = 900, timeout: int = 60,
         conversation_id: Optional[int] = None,
-        partition_id: Optional[int] = None) -> dict:
-    """问答主入口。返回统一结构，不抛异常。"""
+        partition_id: Optional[int] = None,
+        context: Optional[dict] = None) -> dict:
+    """问答主入口。返回统一结构，不抛异常。
+
+    context 为 None 时行为与 v1.1.2 完全一致；否则按 partition/node/document/
+    selection/note 限定检索范围，并把真实使用的范围写入 messages.context_json。
+    """
     question = (question or "").strip()
     if not question:
         return {"ok": False, "error": "问题不能为空"}
+
+    ctx = None
+    if context:
+        try:
+            ctx = context_mod.normalize(conn, context)
+        except context_mod.ContextError as e:
+            return {"ok": False, "error": str(e)}
+        if ctx:
+            node_id = ctx.get("node_id")
+            scope = "all" if ctx["kind"] in ("partition", "document", "selection", "note") else "subtree"
+            if ctx.get("partition_id") is not None:
+                partition_id = ctx["partition_id"]
 
     # 0) 范围校验与会话范围回读（REV-103）
     scope = normalize_scope(scope)
@@ -397,29 +498,31 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
         return {"ok": False, "error": "检索范围不合法（self / subtree / all）"}
     if conversation_id:
         conv = conn.execute(
-            "SELECT id, node_id, title FROM conversations WHERE id=?",
+            "SELECT id, node_id, title, context_json FROM conversations WHERE id=?",
             (int(conversation_id),)).fetchone()
         if conv is None:
             return {"ok": False, "error": "会话不存在"}
         old_node = conv["node_id"]
-        if node_id is None:
-            node_id = old_node                     # 会话里记录的范围优先
-        elif old_node is None or int(node_id) != int(old_node):
-            # 显式切换范围：以本次请求为准，写回会话并留痕（op_log）
-            try:
-                conn.execute(
-                    "UPDATE conversations SET node_id=?, updated_at=? WHERE id=?",
-                    (int(node_id), now_ms(), int(conversation_id)))
-                conn.execute(
-                    "INSERT INTO op_log(op, entity, entity_id, payload, inverse, created_at)"
-                    " VALUES(?,?,?,?,?,?)",
-                    ("scope_update", "conversation", int(conversation_id),
-                     json.dumps({"from": old_node, "to": int(node_id)}, ensure_ascii=False),
-                     json.dumps({"node_id": old_node}, ensure_ascii=False), now_ms()))
-            except Exception:
-                pass
+        # 显式 context 优先：不再让会话 node 覆盖文档/选文/笔记范围
+        if ctx is None:
+            if node_id is None:
+                node_id = old_node                     # 会话里记录的范围优先
+            elif old_node is None or int(node_id) != int(old_node):
+                # 显式切换范围：以本次请求为准，写回会话并留痕（op_log）
+                try:
+                    conn.execute(
+                        "UPDATE conversations SET node_id=?, updated_at=? WHERE id=?",
+                        (int(node_id), now_ms(), int(conversation_id)))
+                    conn.execute(
+                        "INSERT INTO op_log(op, entity, entity_id, payload, inverse, created_at)"
+                        " VALUES(?,?,?,?,?,?)",
+                        ("scope_update", "conversation", int(conversation_id),
+                         json.dumps({"from": old_node, "to": int(node_id)}, ensure_ascii=False),
+                         json.dumps({"node_id": old_node}, ensure_ascii=False), now_ms()))
+                except Exception:
+                    pass
     # 3b) 分区回读/切换：分区是"科目"这一层的过滤，跨分区必须显式传 partition_id
-    if conversation_id:
+    if conversation_id and ctx is None:
         # 注意：上面可能已把会话切换到新节点，分区必须按“当前生效节点”重算
         cur_node = node_id if node_id is not None else conv["node_id"]
         conv_part = tree_mod.partition_of_node(conn, cur_node) if cur_node else None
@@ -453,21 +556,75 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
 
     # 1) 检索：追问时把上一轮问题也拼进去，让「那余弦呢」这类省略句也能搜到料
     retrieval_query = question
+    if ctx and ctx.get("kind") == "selection" and ctx.get("quote"):
+        retrieval_query = question + " " + ctx["quote"][:200]
     if conversation_id:
         try:
             prev = conn.execute(
                 "SELECT content FROM messages WHERE conversation_id=? AND role='user' "
                 "ORDER BY id DESC LIMIT 1", (conversation_id,)).fetchone()
             if prev and prev["content"]:
-                retrieval_query = prev["content"][:80] + " " + question
+                retrieval_query = prev["content"][:80] + " " + retrieval_query
         except Exception:
             pass
-    chunks = _chunk_candidates(conn, retrieval_query, node_id, scope, top_k,
-                               partition_id=partition_id)
+
+    doc_ids = None
+    if ctx and ctx.get("kind") in ("document", "selection"):
+        doc_ids = {int(ctx["doc_id"])}
+    note_only = bool(ctx and ctx.get("kind") == "note")
+    chunks = []
     r = {"mode": "chunk-hybrid"}
 
-    # 1b) 兜底：块级没结果时退回文档级检索
-    if not chunks:
+    if note_only:
+        chunks = _note_candidates(conn, retrieval_query, partition_id=partition_id,
+                                  note_id=ctx.get("note_id"), limit=top_k)
+        r["mode"] = "note-hybrid"
+    else:
+        chunks = _chunk_candidates(conn, retrieval_query, node_id, scope, top_k,
+                                   partition_id=partition_id, doc_ids=doc_ids)
+        # 分区/节点上下文可带用户笔记（低权重），文档/选文上下文不混入其他笔记
+        if ctx and ctx.get("kind") in ("partition", "node"):
+            notes = _note_candidates(conn, retrieval_query, partition_id=partition_id,
+                                     limit=min(3, top_k))
+            if notes:
+                base = chunks[0]["score"] if chunks else 0
+                for i, n in enumerate(notes):
+                    n["score"] = max(0.0, base * 0.55 - i * 8.0)
+                chunks = chunks + notes
+                chunks.sort(key=lambda x: -float(x.get("score") or 0))
+        if doc_ids is not None:
+            r["mode"] = "document-hybrid"
+
+    # 选文作为首条来源；用户选中的文字优先于检索结果
+    if ctx and ctx.get("kind") == "selection" and ctx.get("quote"):
+        sel_chunk = None
+        if ctx.get("chunk_id"):
+            c = search_mod.chunk_text(conn, int(ctx["chunk_id"]))
+            if c:
+                sel_chunk = c
+        title = ""
+        if sel_chunk:
+            title = sel_chunk.get("doc_title") or ""
+        if not title:
+            row = conn.execute("SELECT title FROM documents WHERE id=?",
+                               (ctx["doc_id"],)).fetchone()
+            title = row["title"] if row else ""
+        sel = {
+            "chunk_id": ctx.get("chunk_id"),
+            "doc_id": ctx["doc_id"],
+            "note_id": None,
+            "title": title,
+            "heading_path": ctx.get("heading_path") or (sel_chunk or {}).get("heading_path") or "",
+            "text": ctx["quote"],
+            "score": 100000.0,
+            "source_kind": "selection",
+        }
+        chunks = [sel] + [c for c in chunks
+                          if not (c.get("source_kind") == "selection")]
+        chunks = chunks[:max(1, top_k)]
+
+    # 旧行为：无 context 时块级为空可退文档级；有 context 时绝不越界
+    if not chunks and ctx is None:
         rd = search_mod.search(conn, question, node_id, scope, limit=top_k,
                                partition_id=partition_id)
         r["mode"] = rd.get("mode")
@@ -478,10 +635,19 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
                     "chunk_id": c["id"], "doc_id": c["doc_id"], "title": c["doc_title"],
                     "heading_path": c["heading_path"], "text": c["text"],
                     "score": h.get("score", 0), "semantic": h.get("semantic", False),
+                    "source_kind": "document",
                 })
     if not chunks:
-        return {"ok": False, "error": "资料库里没有检索到相关内容，换个说法或扩大范围试试。",
-                "mode": r.get("mode")}
+        if ctx and ctx.get("kind") == "document":
+            msg = "当前文档里没有检索到相关内容；可以换一种说法，或把范围切换到节点/分区。"
+        elif ctx and ctx.get("kind") == "selection":
+            msg = "选文和当前文档里没有检索到可引用的内容。"
+        elif note_only:
+            msg = "这篇笔记里没有检索到可引用的内容。"
+        else:
+            msg = "资料库里没有检索到相关内容，换个说法或扩大范围试试。"
+        return {"ok": False, "error": msg, "mode": r.get("mode"),
+                "context": _public_context(ctx)}
 
     # 3) 模型
     prov = gateway.load_provider(conn, provider_name or None)
@@ -489,7 +655,8 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
         return {"ok": False, "error": "还没有配置 AI 模型，请到「设置 → AI 模型配置」添加。"}
 
     # 4) 缓存
-    key = _cache_key(question, f"{prov.name}:{prov.model}", chunks)
+    public_ctx = _public_context(ctx)
+    key = _cache_key(question, f"{prov.name}:{prov.model}", chunks, public_ctx)
     cached = conn.execute(
         "SELECT content FROM ai_cache WHERE task_type='qa' AND cache_key=?",
         (key,)).fetchone()
@@ -498,7 +665,7 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
         payload = json.loads(cached["content"])
         payload["cached"] = True
     else:
-        user_msg = f"问题：{question}\n\n资料片段：\n{_build_context(chunks)}"
+        user_msg = f"问题：{question}\n\n资料片段：\n{_build_context(chunks, ctx)}"
         msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
         if conversation_id:
             try:
@@ -546,10 +713,16 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
 
     if conversation_id:
         conv_id = int(conversation_id)
-        conn.execute("UPDATE conversations SET updated_at=? WHERE id=?",
-                     (now_ms(), conv_id))
+        conn.execute(
+            "UPDATE conversations SET updated_at=?, context_json=?, "
+            "node_id=COALESCE(?, node_id) WHERE id=?",
+            (now_ms(), json.dumps(public_ctx or {}, ensure_ascii=False), node_id, conv_id))
     else:
         conv_id = _get_or_create_conversation(conn, question[:24] or "新对话", node_id)
+        conn.execute(
+            "UPDATE conversations SET context_json=? WHERE id=?",
+            (json.dumps(public_ctx or {}, ensure_ascii=False), conv_id))
+    ctx_json = json.dumps(public_ctx or {}, ensure_ascii=False)
     try:
         n_msgs = conn.execute(
             "SELECT COUNT(*) FROM messages WHERE conversation_id=?", (conv_id,)).fetchone()[0]
@@ -557,25 +730,34 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
             conn.execute("UPDATE conversations SET title=? WHERE id=?",
                          (question[:24], conv_id))
         conn.execute(
-            "INSERT INTO messages(conversation_id, role, content, model, trace_id, created_at)"
-            " VALUES(?,'user',?,'','',?)", (conv_id, question, now_ms()))
+            "INSERT INTO messages(conversation_id, role, content, model, trace_id, "
+            "created_at, context_json) VALUES(?,'user',?,'','',?,?)",
+            (conv_id, question, now_ms(), ctx_json))
     except Exception:
         pass
     msg_id = conn.execute(
-        "INSERT INTO messages(conversation_id, role, content, model, trace_id, created_at) "
-        "VALUES(?,'assistant',?,?,?,?)",
+        "INSERT INTO messages(conversation_id, role, content, model, trace_id, "
+        "created_at, context_json) VALUES(?,'assistant',?,?,?,?,?)",
         (conv_id, answer, payload.get("model") or prov.model,
-         payload.get("trace_id") or "", now_ms())).lastrowid
+         payload.get("trace_id") or "", now_ms(), ctx_json)).lastrowid
 
     snaps, scores = [], []
     for i in use_idx:
         c = chunks[i - 1]
+        kind = c.get("source_kind") or "document"
         snaps.append({
-            "doc_id": c["doc_id"], "doc_title": c["title"],
-            "heading_path": c["heading_path"],
+            "source_kind": kind,
+            "doc_id": int(c.get("doc_id") or 0),
+            "note_id": c.get("note_id"),
+            "doc_title": c.get("title") or "",
+            "heading_path": c.get("heading_path") or "",
             "snippet": (c["text"] or "")[:citations.SNIPPET_LEN].replace("\n", " "),
             "text_hash": citations.text_hash(c["text"]),
-            "chunk_id": c["chunk_id"],
+            "chunk_id": c.get("chunk_id"),
+            "page": c.get("page"),
+            "start_off": c.get("start_off"),
+            "end_off": c.get("end_off"),
+            "quote": c.get("text") if kind == "selection" else "",
         })
         scores.append(c.get("score", 0))
     citations.save_citations(conn, msg_id, snaps, scores)
@@ -584,10 +766,12 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
     for i in use_idx:
         c = chunks[i - 1]
         sources.append({
-            "index": i, "doc_id": c["doc_id"], "title": c["title"],
-            "heading_path": c["heading_path"],
+            "index": i, "source_kind": c.get("source_kind") or "document",
+            "doc_id": int(c.get("doc_id") or 0), "note_id": c.get("note_id"),
+            "title": c["title"], "heading_path": c["heading_path"],
             "snippet": (c["text"] or "")[:160].replace("\n", " "),
-            "score": c.get("score", 0), "chunk_id": c["chunk_id"],
+            "score": c.get("score", 0), "chunk_id": c.get("chunk_id"),
+            "page": c.get("page"),
         })
 
     return {
@@ -606,6 +790,8 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
         "node_id": node_id,
         "scope": scope,
         "partition_id": partition_id,
+        "context": public_ctx,
+        "context_label": (public_ctx or {}).get("label", ""),
         "citation_status": "cited" if use_idx else "none",
         "insufficient": insufficient,
         "notice": ("" if use_idx else "资料不足：模型回答没有引用任何原文片段，已避免伪造出处。"),

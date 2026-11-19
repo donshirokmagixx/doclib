@@ -94,7 +94,9 @@ def main():
         check("health 带 prompt_version", h.get("prompt_version") == prompts.PROMPT_VERSION,
               h.get("prompt_version"))
         check("提示词文件已加载", len(prompts.load_qa_prompt()) > 200)
-        check("digest 形如 p3:xxxx", prompts.prompt_digest().startswith("p3:"), prompts.prompt_digest())
+        check("digest 形如 p<version>:xxxx",
+              prompts.prompt_digest().startswith(f"p{prompts.PROMPT_VERSION}:"),
+              prompts.prompt_digest())
 
         print("\n全部通过 ✅（临时库：%s）" % TMP)
         return 0

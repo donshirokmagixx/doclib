@@ -1,0 +1,45 @@
+:root{
+  --font-ui:"Noto Sans SC","Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+  --font-read:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+  --font-mono:"Cascadia Mono","Consolas",monospace;
+  --fs-11:11px; --fs-12:12px; --fs-13:13px; --fs-14:14px;
+  --fs-16:16px; --fs-20:20px; --fs-28:28px;
+  --lh-ui:1.55; --lh-read:1.9;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+  --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px; --sp-14:56px;
+  --r-1:2px; --r-2:4px; --r-3:8px;
+  --dur-1:90ms; --dur-2:140ms; --ease:cubic-bezier(.2,.7,.3,1);
+  --shadow-pop:0 14px 40px rgba(0,0,0,.34);
+  --ribbon-w:44px; --left-w:268px; --ai-w:374px; --status-h:26px; --tab-h:40px;
+}
+
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1512; --ribbon:#0B100E;
+  --panel:#141B17; --panel-2:#19211D; --panel-3:#1F2A24;
+  --ink:#E6E8E1; --ink-2:#A7B1A9; --ink-3:#7F8B83;
+  --line:#28312B; --line-strong:#3A453E;
+  --accent:#8FB6A2; --accent-2:#A8C9B8; --accent-soft:#1E2C25; --accent-ink:#C4DCCF;
+  --cue:#C18A67; --cue-soft:#2F211A;
+  --mark:#4A4026; --danger:#D07A68; --warn:#C9A15E;
+  --graph-bg:#0E1411; --graph-grid:rgba(226,229,222,.065);
+  --paper:#151C18; --paper-ink:#D9DDD5;
+  --n1:#6F9C85; --n2:#6F8FA0; --n3:#B08A68; --n4:#B39A5E; --n5:#9B6B76; --n6:#7E948B;
+  --node-doc:#93A099; --node-note:#C18A67;
+  --shadow-pop:0 16px 44px rgba(0,0,0,.40);
+}
+html[data-theme="light"]{
+  color-scheme:light;
+  --bg:#F2F2EC; --ribbon:#EAEBE4;
+  --panel:#FBFBF7; --panel-2:#F0F0E8; --panel-3:#E7E8DE;
+  --ink:#1F2420; --ink-2:#58625B; --ink-3:#6B766E;
+  --line:#DCDDD3; --line-strong:#C9CBC0;
+  --accent:#2E5A4A; --accent-2:#244A3C; --accent-soft:#E2EBE4; --accent-ink:#24463A;
+  --cue:#8A5A44; --cue-soft:#F0E4DC;
+  --mark:#EAD9A7; --danger:#A64032; --warn:#8A651F;
+  --graph-bg:#ECEDE5; --graph-grid:rgba(32,37,31,.09);
+  --paper:#FBFBF7; --paper-ink:#252B26;
+  --n1:#4E7A63; --n2:#4D6A7A; --n3:#9A6A4C; --n4:#B08A3E; --n5:#7E4A56; --n6:#6E7F79;
+  --node-doc:#9AA39B; --node-note:#8A5A44;
+  --shadow-pop:0 14px 38px rgba(31,42,35,.16);
+}

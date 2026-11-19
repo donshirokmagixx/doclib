@@ -8,12 +8,16 @@ import hashlib
 import sys
 from pathlib import Path
 
-PROMPT_VERSION = "3"
+PROMPT_VERSION = "4"
 
 
 def _candidates():
-    yield Path(__file__).resolve().with_name("prompts") / "qa_v3.txt"
+    yield Path(__file__).resolve().with_name("prompts") / "qa_v4.txt"
     base = getattr(sys, "_MEIPASS", "")
+    if base:
+        yield Path(base) / "ai" / "prompts" / "qa_v4.txt"
+    # 回退：旧包/旧部署只有 v3
+    yield Path(__file__).resolve().with_name("prompts") / "qa_v3.txt"
     if base:
         yield Path(base) / "ai" / "prompts" / "qa_v3.txt"
 
