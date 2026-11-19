@@ -32,12 +32,13 @@
 - `DocLib.spec` PyInstaller onedir 构建成功。
 - 原生窗口冒烟：`DocLib.exe` 启动后主窗口标题 `DocLib 2.0 · 本地知识工作台`，进程响应；加载 `/api/v2/bootstrap`、`/api/v2/graph` 等 200。
 - 打包 `DocLib.exe --browser --no-browser --port 8898` 冒烟：`/api/v2/bootstrap`、`/`、`/app/main.js`（MIME）、`/api/v2/workspace` 均 200；产物 56.7 MB（未含数据）。
-- ZIP：`dist-v2.0/DocLib-2.0.0-win64.zip`，33.1 MB，SHA256 `FB526E0501EF90DD8EA63015C4FEA47C9AE6795E692E176FC6BAFD6E9CB9F309`；无 `data/`。
+- ZIP：`dist-v2.0/DocLib-2.0.0-win64.zip`，33.1 MB，SHA256 `AD8378EFEDABAE5E684D6DC86A2B4AE54112C40BDAB899342CC517841ED10AF4`；无 `data/`。
 - 未做：WebView2 原生窗口的自动点击回归（只做启动/加载冒烟）；PDF 原生预览视觉回归（无 PDF 样例）。
 
 ## 3. 手工 E2E（Playwright + Edge，1440×900）
 
 - 图谱：28→36 节点（两科目）渲染；节点点击信息面板；局部图谱打开中央标签；树同步高亮。
+- 图谱交互修正实测（Edge/Playwright）：层级/挂载/wikilink 边常显 opacity `.38/.54/.62`（不再依赖 hover）；`cy.options().wheelSensitivity=0.52`；拖动节点 60×40px 时位置变化 67.8×45.2（缩放 1.15 下正好 1.3×），截图 01/07 已更新。
 - 阅读：Markdown 文档标题/正文/TOC；目录按钮；PDF 分支未测；引用片段定位与 CSS Highlight。
 - AI：文档上下文只检索该文档（请求体 `context.kind=document`）；选中文字请求 `context.kind=selection` 且首条来源 `selection`；全部资料库 `context.kind=all`；历史会话恢复；引用点击回原文。
 - 笔记：新建→自动保存→刷新恢复；反链 3 条；`[[doc]]`/`[[node]]` 预览链接；Markdown 导入；Word 问答导出。

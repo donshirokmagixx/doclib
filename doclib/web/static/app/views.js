@@ -209,7 +209,7 @@ async function renderGraph(tab, host, state, actions) {
     cy = window.cytoscape({
       container: document.getElementById('cy'),
       elements,
-      wheelSensitivity: 0.18,
+      wheelSensitivity: 0.52,
       minZoom: 0.05,
       maxZoom: 3,
       style: [
@@ -229,15 +229,16 @@ async function renderGraph(tab, host, state, actions) {
         { selector: 'node.selected', style: { 'border-width': 3, 'border-color': v('--accent'), 'overlay-color': v('--accent'), 'overlay-opacity': .12, 'overlay-padding': 5 } },
         { selector: 'node.dim', style: { opacity: .25, 'text-opacity': 0 } },
         { selector: 'edge', style: {
-          width: .8, 'line-color': v('--ink-3'), opacity: .18, 'curve-style': 'bezier',
+          width: 1.0, 'line-color': v('--ink-3'), opacity: .46, 'curve-style': 'bezier',
           'target-arrow-shape': 'none', 'arrow-scale': .6,
         }},
-        { selector: 'edge[rel="hierarchy"]', style: { 'line-style': 'dashed', opacity: .14 } },
-        { selector: 'edge[rel="mount"]', style: { opacity: .20 } },
-        { selector: 'edge[rel="manual"]', style: { 'line-color': v('--accent'), opacity: .36, width: 1.1 } },
-        { selector: 'edge[rel="wikilink"]', style: { 'line-style': 'dotted', 'line-color': v('--cue'), opacity: .34 } },
-        { selector: 'edge.hot', style: { opacity: .65, width: 1.2 } },
-        { selector: 'edge.dim', style: { opacity: .05 } },
+        { selector: 'edge[rel="hierarchy"]', style: { 'line-style': 'dashed', opacity: .38, width: .9 } },
+        { selector: 'edge[rel="mount"]', style: { opacity: .54, width: 1.0 } },
+        { selector: 'edge[rel="manual"]', style: { 'line-color': v('--accent'), opacity: .72, width: 1.35 } },
+        { selector: 'edge[rel="wikilink"]', style: { 'line-style': 'dotted', 'line-color': v('--cue'), opacity: .62, width: 1.1 } },
+        { selector: 'edge[rel="ai"]', style: { 'line-style': 'dashed', 'line-color': v('--accent-2'), opacity: .44, width: 1.0 } },
+        { selector: 'edge.hot', style: { opacity: .92, width: 1.9 } },
+        { selector: 'edge.dim', style: { opacity: .08 } },
       ],
       layout: { name: 'preset' },
     });
@@ -259,6 +260,23 @@ async function renderGraph(tab, host, state, actions) {
     cy.on('tap', evt => { if (evt.target === cy) clearSelection(); });
     cy.on('mouseover', 'node', evt => hoverNode(evt.target));
     cy.on('mouseout', 'node', () => { cy.nodes().removeClass('dim'); cy.edges().removeClass('dim hot'); });
+    // 节点拖动默认 1:1；按用户要求给一点“跟手加速”，仍以鼠标起点为锚，避免漂移
+    cy.on('grab', 'node', evt => {
+      const n = evt.target;
+      n.scratch('_doclibDrag', {
+        x: n.position('x'), y: n.position('y'),
+        mx: evt.position.x, my: evt.position.y,
+      });
+    });
+    cy.on('drag', 'node', evt => {
+      const s = evt.target.scratch('_doclibDrag');
+      if (!s) return;
+      const f = 1.3;
+      evt.target.position({
+        x: s.x + (evt.position.x - s.mx) * f,
+        y: s.y + (evt.position.y - s.my) * f,
+      });
+    });
     cy.on('dragfree', 'node', evt => {
       const n = evt.target;
       const positions = {};

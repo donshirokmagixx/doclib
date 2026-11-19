@@ -73,6 +73,7 @@
 - 审计：demo fixture 58/60；剩 `GET /api/search` 对“卷积定理”在 demo 语料无命中（v2 统一搜索已手工通过）与 audit 的 tree/indent 前置条件。
 - 构建：`DocLib.spec` + PyInstaller onedir，`dist-v2.0/DocLib` 56.7MB；原生 WebView2 窗口冒烟 `MainWindowTitle='DocLib 2.0 · 本地知识工作台'`；打包 exe 的 `--browser` 模式 API/静态资源 200。
 - ZIP：`dist-v2.0/DocLib-2.0.0-win64.zip`，33.1MB，SHA256 见 `dist-v2.0/SHA256SUMS.txt`；无 `data/`，保留 `使用说明.txt`/`解除锁定.bat`。
+- 交互修正（用户反馈）：图谱连边常显；`wheelSensitivity` 0.18→0.52；节点拖动 1.3× 跟手。截图 01 已更新，ZIP 重新构建。
 - 截图：`docs/v2/screenshots/01..13`；视觉评分见 `VISUAL_AUDIT.md`；验收见 `TEST_REPORT.md`。
 - 未 push；旧 `dist/DocLib` 未被覆盖。
 

@@ -10,6 +10,7 @@ Obsidian 式 AI 知识工作台升级：
 - 迁移与持久化：`0006_graph_context`、事务迁移 + 迁移前备份 + 失败回滚、`schema_version=0007`、`workspace.json` 原子持久化/损坏回退
 - 旧功能保留：分区/全部科目、导入、搜索、模型/密钥、Word 问答导出、导图嵌入、备份/回收站/重建索引、安全校验
 - 安全：CSP、XFO SAMEORIGIN（PDF 需要）、Host/Origin/JSON 校验、Range、静态 404/MIME
+- 图谱交互修正：层级/挂载/手工/wikilink/AI 连边常显（不再只在 hover 时出现）；滚轮缩放灵敏度 0.18→0.52；节点拖动 1.3× 跟手，仍以抓取点为锚，拖动结束位置正常保存
 - 测试：13 个 Python 测试全过（含 context/migrations/workspace/http_v2）；Playwright E2E 覆盖图谱/阅读/AI/选文/引用/笔记/导入/主题/窄窗
 - 文档：`docs/v2/PLAN|DESIGN_SYSTEM|ARCHITECTURE|PROGRESS|DECISIONS`、截图矩阵、第三方许可
 
