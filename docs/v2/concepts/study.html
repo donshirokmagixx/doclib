@@ -1,0 +1,527 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocLib 2.0 · 概念稿 A · 书斋</title>
+<style>
+:root{
+  --font-ui:"Noto Sans SC","Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+  --font-read:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+  --font-mono:"Cascadia Mono","Consolas",monospace;
+  --bg:#F3F3EE; --ribbon:#EDEDE7; --panel:#FAFAF6; --panel-2:#F4F4EE;
+  --ink:#20251F; --ink-2:#5F6A62; --ink-3:#8A948C;
+  --line:#DCDDD4; --line-2:#E8E8E0;
+  --accent:#2E5A4A; --accent-ink:#24463A; --accent-soft:#E2EBE5;
+  --cue:#8A5A44; --cue-soft:#F0E4DC;
+  --mark:#EAD9A7; --danger:#A64032;
+  --n1:#4E7A63; --n2:#4D6A7A; --n3:#9A6A4C; --n4:#B08A3E; --n5:#7E4A56; --n6:#6E7F79;
+  --r1:3px; --r2:6px; --r3:10px;
+  --shadow:0 10px 30px rgba(28,38,31,.10);
+  --dur:140ms; --ease:cubic-bezier(.2,.7,.3,1);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);
+  font-size:13px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px}
+svg{display:block}
+::selection{background:#CFE0D5}
+
+.app{height:calc(100vh - 26px);display:grid;
+  grid-template-columns:44px 268px minmax(0,1fr) 374px;
+  grid-template-rows:1fr;min-height:0}
+.ribbon{background:var(--ribbon);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;padding:10px 0 8px;gap:4px}
+.logo{width:28px;height:28px;margin-bottom:12px;color:var(--accent)}
+.ribbon .sp{flex:1}
+.rbtn{width:32px;height:32px;border-radius:var(--r2);display:grid;place-items:center;
+  color:var(--ink-2);position:relative;transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}
+.rbtn:hover{background:var(--panel-2);color:var(--ink)}
+.rbtn.active{background:var(--accent-soft);color:var(--accent-ink)}
+.rbtn.active::before{content:"";position:absolute;left:-6px;top:8px;bottom:8px;width:2px;
+  border-radius:2px;background:var(--accent)}
+.rbtn svg{width:18px;height:18px}
+
+.explorer{background:var(--panel);border-right:1px solid var(--line);display:flex;
+  flex-direction:column;min-height:0}
+.exp-head{height:42px;display:flex;align-items:center;gap:6px;padding:0 12px 0 14px;
+  border-bottom:1px solid var(--line-2)}
+.exp-head b{font-size:12.5px;font-weight:600;letter-spacing:.02em}
+.exp-head .n{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-left:2px}
+.exp-head .sp{flex:1}
+.iconbtn{width:24px;height:24px;border-radius:var(--r1);display:grid;place-items:center;color:var(--ink-3)}
+.iconbtn:hover{background:var(--panel-2);color:var(--ink)}
+.iconbtn svg{width:15px;height:15px}
+.partition{margin:10px 12px 4px;padding:7px 9px;border:1px solid var(--line);
+  border-radius:var(--r2);display:flex;align-items:center;gap:7px;background:#fff}
+.partition .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.partition .nm{font-size:12.5px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.partition .cnt{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3)}
+.tree-wrap{flex:1;overflow:auto;padding:6px 8px 16px}
+.tree{list-style:none;margin:0;padding:0}
+.tree ul{list-style:none;margin:0;padding-left:14px;border-left:1px solid var(--line-2)}
+.row{height:28px;display:flex;align-items:center;gap:6px;padding:0 8px;border-radius:var(--r1);
+  color:var(--ink-2);cursor:default;user-select:none}
+.row:hover{background:var(--panel-2);color:var(--ink)}
+.row.on{background:var(--accent-soft);color:var(--accent-ink)}
+.row .caret{width:12px;color:var(--ink-3);font-size:9px;text-align:center;flex:none}
+.row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}
+.row .cnt{font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.row.doc .nm{color:var(--ink-2);font-size:12px}
+.row.doc .fi{color:var(--ink-3);width:14px;display:grid;place-items:center;flex:none}
+.row.doc .fi svg{width:13px;height:13px}
+.row .note{width:5px;height:5px;border-radius:1px;background:var(--cue);flex:none;margin:0 1px}
+.exp-foot{border-top:1px solid var(--line-2);padding:8px 12px;display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:11.5px}
+.exp-foot .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r1);overflow:hidden;background:var(--panel-2)}
+.seg button{padding:2px 7px;font-size:10.5px;color:var(--ink-3)}
+.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--line) inset}
+
+.center{background:var(--bg);display:flex;flex-direction:column;min-width:0;min-height:0}
+.tabbar{height:40px;display:flex;align-items:stretch;border-bottom:1px solid var(--line);
+  background:var(--ribbon);padding-left:6px;min-width:0}
+.tab{height:40px;display:flex;align-items:center;gap:7px;padding:0 11px;min-width:0;max-width:220px;
+  color:var(--ink-2);border-right:1px solid var(--line-2);position:relative;font-size:12.5px}
+.tab:hover{background:var(--panel-2);color:var(--ink)}
+.tab.on{background:var(--bg);color:var(--ink)}
+.tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent)}
+.tab .ic{color:var(--ink-3);flex:none}
+.tab .ic svg{width:14px;height:14px}
+.tab .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab .x{width:16px;height:16px;border-radius:var(--r1);display:grid;place-items:center;color:var(--ink-3);
+  opacity:0;flex:none}
+.tab:hover .x,.tab.on .x{opacity:1}
+.tab .x:hover{background:var(--panel-2);color:var(--ink)}
+.tab .dirty{width:5px;height:5px;border-radius:50%;background:var(--cue);opacity:0;flex:none}
+.tab.dirty .dirty{opacity:1}
+.tabbar .sp{flex:1}
+.tabbar .nav{display:flex;align-items:center;gap:2px;padding:0 6px}
+.tabbar .nav .iconbtn{width:26px;height:26px}
+.tabbar .add{width:30px;display:grid;place-items:center;color:var(--ink-3)}
+.tabbar .add:hover{color:var(--ink);background:var(--panel-2)}
+
+.view{flex:1;min-height:0;position:relative;overflow:hidden}
+.graph{position:absolute;inset:0;background:
+  radial-gradient(circle at 1px 1px, rgba(32,37,31,.10) 1px, transparent 1.2px) 0 0/22px 22px,
+  linear-gradient(180deg,#F2F2EC,#EDEEE7)}
+.graph svg{width:100%;height:100%}
+.g-toolbar{position:absolute;left:14px;top:14px;width:206px;background:rgba(250,250,246,.94);
+  border:1px solid var(--line);border-radius:var(--r3);box-shadow:var(--shadow);
+  padding:11px 12px;backdrop-filter:blur(4px)}
+.g-toolbar h4{margin:0 0 8px;font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.03em}
+.g-search{width:100%;height:28px;border:1px solid var(--line);border-radius:var(--r1);
+  background:#fff;padding:0 8px;font-size:11.5px;outline:none}
+.g-search:focus{border-color:var(--accent)}
+.frow{display:flex;align-items:center;gap:6px;height:24px;color:var(--ink-2);font-size:11.5px}
+.frow .sw{width:8px;height:8px;border-radius:50%;flex:none}
+.frow .sp{flex:1}
+.frow .ck{width:13px;height:13px;border:1px solid var(--line);border-radius:2px;display:grid;place-items:center;color:transparent;font-size:9px;background:#fff}
+.frow .ck.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.gsplit{height:1px;background:var(--line-2);margin:8px 0}
+.g-range{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:10px;color:var(--ink-3)}
+.g-range .track{flex:1;height:2px;background:var(--line);position:relative}
+.g-range .track::after{content:"";position:absolute;left:0;top:0;width:58%;height:2px;background:var(--accent)}
+.g-range .knob{position:absolute;left:56%;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+
+.g-legend{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;gap:5px;
+  background:rgba(250,250,246,.9);border:1px solid var(--line);border-radius:var(--r2);
+  padding:9px 11px;font-size:10.5px;color:var(--ink-2);box-shadow:0 3px 12px rgba(28,38,31,.05)}
+.g-legend .li{display:flex;align-items:center;gap:6px}
+.g-legend .d{width:7px;height:7px;border-radius:50%}
+.g-legend .sq{width:6px;height:6px;border-radius:1px;background:var(--cue)}
+.g-legend .ln{width:14px;height:1px;background:var(--ink-3)}
+
+.g-inspect{position:absolute;right:14px;top:14px;width:236px;background:rgba(250,250,246,.96);
+  border:1px solid var(--line);border-radius:var(--r3);box-shadow:var(--shadow);
+  padding:13px 14px;backdrop-filter:blur(4px)}
+.g-inspect .kind{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.04em;color:var(--ink-3);
+  text-transform:none;display:flex;align-items:center;gap:6px}
+.g-inspect .kind .d{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.g-inspect h3{margin:7px 0 2px;font-family:var(--font-read);font-size:18px;font-weight:600;letter-spacing:.01em}
+.g-inspect .path{font-size:10.5px;color:var(--ink-3);margin-bottom:10px}
+.g-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;border-top:1px solid var(--line-2);
+  border-bottom:1px solid var(--line-2);padding:9px 0;margin-bottom:10px}
+.g-stats div{min-width:0}
+.g-stats b{display:block;font-family:var(--font-mono);font-size:14px;font-weight:500;line-height:1.2}
+.g-stats span{font-size:10px;color:var(--ink-3)}
+.g-actions{display:flex;flex-wrap:wrap;gap:5px}
+.g-actions button{height:26px;padding:0 8px;border:1px solid var(--line);border-radius:var(--r1);
+  background:#fff;font-size:11px;color:var(--ink-2)}
+.g-actions button:hover{border-color:var(--accent);color:var(--accent-ink)}
+.g-actions button.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.g-nb{margin-top:12px}
+.g-nb h5{margin:0 0 5px;font-size:10.5px;color:var(--ink-3);font-weight:500}
+.g-nb a{display:flex;align-items:center;gap:6px;min-height:20px;color:var(--ink-2);
+  text-decoration:none;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-nb a:hover{color:var(--accent-ink)}
+.g-nb a .d{width:5px;height:5px;border-radius:50%;flex:none}
+
+.ai{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.ai-head{height:42px;display:flex;align-items:center;gap:7px;padding:0 12px 0 14px;border-bottom:1px solid var(--line-2)}
+.ai-head b{font-size:12.5px;font-weight:600}
+.ai-head .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.ai-head .sp{flex:1}
+.ai-head .iconbtn{width:24px;height:24px}
+.ctx{margin:10px 12px 0;border:1px solid var(--line);border-radius:var(--r2);background:#fff;
+  padding:7px 9px;display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-2)}
+.ctx .lbl{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
+.ctx .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.ctx .sw{font-size:10.5px;color:var(--accent-ink);border-bottom:1px solid var(--accent);line-height:1.2}
+.msgs{flex:1;overflow:auto;padding:14px 14px 8px}
+.q{display:flex;gap:8px;margin:2px 0 14px}
+.q .g{width:26px;flex:none;font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);padding-top:3px}
+.q .b{font-size:13px;color:var(--ink);line-height:1.7}
+.a{display:flex;gap:8px;margin-bottom:14px}
+.a .g{width:26px;flex:none;font-family:var(--font-mono);font-size:9.5px;color:var(--cue);padding-top:3px}
+.a .b{position:relative;padding-left:10px;border-left:1px solid var(--cue-soft);font-family:var(--font-read);
+  font-size:13.5px;line-height:1.9;color:#2A302A;min-width:0}
+.a .b p{margin:0 0 8px}
+.a .b .cite{font-family:var(--font-mono);font-size:9.5px;color:var(--cue);vertical-align:super;
+  line-height:0;padding:0 1px;cursor:pointer;border-bottom:1px solid transparent}
+.a .b .cite:hover{border-bottom-color:var(--cue)}
+.a .b .src{margin-top:9px;padding-top:8px;border-top:1px solid var(--line-2);font-family:var(--font-ui);
+  font-size:11px;line-height:1.6;color:var(--ink-2)}
+.a .b .src div{display:flex;gap:5px}
+.a .b .src .i{font-family:var(--font-mono);font-size:9.5px;color:var(--cue);flex:none;width:16px}
+.a .b .meta{margin-top:7px;font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);display:flex;gap:8px;flex-wrap:wrap}
+.a .b .meta .ok{color:var(--accent-ink)}
+.ai-foot{border-top:1px solid var(--line-2);padding:10px 12px 12px;background:var(--panel)}
+.composer{border:1px solid var(--line);border-radius:var(--r2);background:#fff;padding:8px 9px 7px}
+.composer:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,90,74,.08)}
+.composer textarea{width:100%;height:42px;border:0;resize:none;outline:none;background:none;
+  font-size:12.5px;line-height:1.6;color:var(--ink)}
+.composer textarea::placeholder{color:var(--ink-3)}
+.cbar{display:flex;align-items:center;gap:8px;padding-top:5px}
+.cbar .model{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar .send{width:26px;height:26px;border-radius:var(--r1);background:var(--accent);color:#fff;display:grid;place-items:center}
+.cbar .send svg{width:14px;height:14px}
+.ai-foot .hint{font-size:10px;color:var(--ink-3);margin-top:7px;display:flex;justify-content:space-between}
+.kbd{font-family:var(--font-mono);font-size:9px;border:1px solid var(--line);border-radius:2px;
+  padding:0 3px;background:var(--panel-2);color:var(--ink-2)}
+
+.status{height:26px;display:flex;align-items:center;gap:16px;padding:0 12px 0 14px;
+  border-top:1px solid var(--line);background:var(--ribbon);font-family:var(--font-mono);
+  font-size:9.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden}
+.status .sp{flex:1}
+.status .ok{color:var(--accent-ink)}
+.status .sep{width:1px;height:11px;background:var(--line)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-file" viewBox="0 0 20 20"><path d="M5 2.8h6l4 4v10.4H5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M11 2.8v4h4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 20 20"><circle cx="8.7" cy="8.7" r="4.3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m12 12 4.2 4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-graph" viewBox="0 0 20 20"><circle cx="5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="14.5" cy="4.8" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="14.5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="m6.8 5.5 6-.5M6.2 7.6l3.6 5.1M13.7 6.4l-1.9 6" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-note" viewBox="0 0 20 20"><path d="M5 3h10v14H5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 7h5M7.5 10h5M7.5 13h3.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-mind" viewBox="0 0 20 20"><circle cx="6" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="5.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="14.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 9.3 12.3 6.3M8 10.7l4.3 3" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M5 5l1.4 1.4M13.6 13.6 15 15M15 5l-1.4 1.4M6.4 13.6 5 15" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-theme" viewBox="0 0 20 20"><path d="M10 2.8a7.2 7.2 0 1 0 0 14.4z" fill="currentColor" opacity=".22"/><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 20 20"><path d="m6 8 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-back" viewBox="0 0 20 20"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 20 20"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 20 20"><path d="M5 2.8h6l4 4v10.4H5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 9h5M7.5 12h5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 20 20"><path d="M5 2.8h6l4 4v10.4H5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M11 2.8v4h4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 13.5h6" stroke="currentColor" stroke-width="1.1"/></symbol>
+  <symbol id="i-send" viewBox="0 0 20 20"><path d="M3.5 10 16.5 3.5 13 16l-3.2-5.2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="m9.8 10.8 3-3" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 20 20"><path d="M4.5 5.5A6.8 6.8 0 1 1 3.4 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4.5 2.8v3.4h3.4M10 6.5V10l2.5 1.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="ribbon" aria-label="主导航">
+    <svg class="logo" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <path d="M6 8.2c3.2-1.2 5.6-1.2 8 0 2.4 1.2 4.8 1.2 8 0v12c-3.2 1.2-5.6 1.2-8 0-2.4-1.2-4.8-1.2-8 0z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M14 8.4v11.8" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+      <circle cx="20.6" cy="6.7" r="2.2" fill="#F3F3EE" stroke="currentColor" stroke-width="1.3"/>
+    </svg>
+    <button class="rbtn active" title="资料库"><svg><use href="#i-file"/></svg></button>
+    <button class="rbtn" title="搜索（Ctrl+K）"><svg><use href="#i-search"/></svg></button>
+    <button class="rbtn" title="关系图谱"><svg><use href="#i-graph"/></svg></button>
+    <button class="rbtn" title="笔记"><svg><use href="#i-note"/></svg></button>
+    <button class="rbtn" title="知识导图"><svg><use href="#i-mind"/></svg></button>
+    <div class="sp"></div>
+    <button class="rbtn" title="切换主题"><svg><use href="#i-theme"/></svg></button>
+    <button class="rbtn" title="设置"><svg><use href="#i-gear"/></svg></button>
+  </aside>
+
+  <aside class="explorer">
+    <div class="exp-head">
+      <b>资料库</b><span class="n">8</span><div class="sp"></div>
+      <button class="iconbtn" title="搜索"><svg><use href="#i-search"/></svg></button>
+      <button class="iconbtn" title="导入资料"><svg><use href="#i-plus"/></svg></button>
+    </div>
+    <div class="partition" title="切换科目分区">
+      <span class="dot"></span><span class="nm">信号分析与处理</span><span class="cnt">5</span>
+      <svg width="12" height="12" style="color:var(--ink-3)"><use href="#i-chev"/></svg>
+    </div>
+    <div class="tree-wrap">
+      <ul class="tree">
+        <li>
+          <div class="row"><span class="caret">▾</span><span class="nm">信号与系统</span><span class="cnt">5</span></div>
+          <ul>
+            <li><div class="row"><span class="caret">▸</span><span class="nm">卷积</span><span class="cnt">1</span></div></li>
+            <li>
+              <div class="row"><span class="caret">▾</span><span class="nm">傅里叶</span><span class="cnt">3</span></div>
+              <ul>
+                <li>
+                  <div class="row on"><span class="caret">▸</span><span class="nm">傅里叶变换</span><span class="cnt">2</span></div>
+                </li>
+                <li><div class="row"><span class="caret"></span><span class="nm">常见傅里叶变换的函数</span><span class="cnt">2</span></div></li>
+              </ul>
+            </li>
+            <li><div class="row"><span class="caret">▸</span><span class="nm">离散时间信号分析</span><span class="cnt">0</span></div></li>
+            <li>
+              <div class="row doc">
+                <span class="caret"></span><span class="fi"><svg><use href="#i-pdf"/></svg></span>
+                <span class="nm">傅里叶变换.pdf</span>
+              </div>
+            </li>
+            <li>
+              <div class="row doc">
+                <span class="caret"></span><span class="note"></span>
+                <span class="nm">DFT 与 FFT 的关系</span>
+              </div>
+            </li>
+          </ul>
+        </li>
+        <li><div class="row"><span class="caret">▸</span><span class="nm">工程数学</span><span class="cnt">1</span></div></li>
+        <li><div class="row"><span class="caret">▸</span><span class="nm">概率论</span><span class="cnt">0</span></div></li>
+        <li><div class="row"><span class="caret"></span><span class="nm" style="color:var(--ink-3)">未分类</span><span class="cnt">2</span></div></li>
+      </ul>
+    </div>
+    <div class="exp-foot">
+      <div class="seg"><button class="on">结构</button><button>文件</button></div>
+      <span class="sp"></span>
+      <span>14 个节点</span>
+    </div>
+  </aside>
+
+  <main class="center">
+    <div class="tabbar">
+      <div class="tab on">
+        <span class="ic"><svg><use href="#i-graph"/></svg></span><span class="t">关系图谱</span>
+        <span class="dirty"></span><span class="x">×</span>
+      </div>
+      <div class="tab">
+        <span class="ic"><svg><use href="#i-pdf"/></svg></span><span class="t">傅里叶变换.pdf</span>
+        <span class="dirty"></span><span class="x">×</span>
+      </div>
+      <div class="tab dirty">
+        <span class="ic"><svg><use href="#i-note"/></svg></span><span class="t">DFT 与 FFT 的关系</span>
+        <span class="dirty"></span><span class="x">×</span>
+      </div>
+      <button class="add" title="新建标签"><svg width="15" height="15"><use href="#i-plus"/></svg></button>
+      <div class="sp"></div>
+      <div class="nav">
+        <button class="iconbtn" title="后退（Alt+←）"><svg width="15" height="15"><use href="#i-back"/></svg></button>
+        <button class="iconbtn" title="前进（Alt+→）" style="opacity:.35"><svg width="15" height="15"><use href="#i-fwd"/></svg></button>
+        <button class="iconbtn" title="更多"><svg width="15" height="15" viewBox="0 0 20 20"><circle cx="4" cy="10" r="1.2" fill="currentColor"/><circle cx="10" cy="10" r="1.2" fill="currentColor"/><circle cx="16" cy="10" r="1.2" fill="currentColor"/></svg></button>
+      </div>
+    </div>
+
+    <section class="view" id="graphView">
+      <div class="graph" id="graph"><svg id="gsvg" viewBox="0 0 760 820" preserveAspectRatio="xMidYMid meet"></svg></div>
+
+      <div class="g-toolbar">
+        <h4>筛选</h4>
+        <div class="seg" style="margin-bottom:8px;width:100%"><button class="on" style="flex:1">全局</button><button style="flex:1">局部</button></div>
+        <input class="g-search" placeholder="在图谱中搜索…">
+        <div class="gsplit"></div>
+        <div class="frow"><span class="sw" style="background:var(--n1)"></span><span class="sp">信号分析与处理</span><span class="ck on">✓</span></div>
+        <div class="frow"><span class="sw" style="background:var(--n2)"></span><span class="sp">工程数学</span><span class="ck on">✓</span></div>
+        <div class="frow"><span class="sw" style="background:var(--n3)"></span><span class="sp">概率论</span><span class="ck on">✓</span></div>
+        <div class="gsplit"></div>
+        <div class="frow"><span class="sp">资料 / 笔记 / 节点</span><span class="ck on">✓</span></div>
+        <div class="frow"><span class="sp">显示上下级关系</span><span class="ck on">✓</span></div>
+        <div class="frow"><span class="sp">AI 推测关联</span><span class="ck"></span></div>
+        <div class="gsplit"></div>
+        <div class="g-range"><span>1</span><span class="track"><span class="knob"></span></span><span>3 跳</span></div>
+      </div>
+
+      <div class="g-inspect">
+        <div class="kind"><span class="d"></span>知识节点 · 信号与系统</div>
+        <h3>傅里叶变换</h3>
+        <div class="path">/ 信号分析与处理 / 信号与系统 / 傅里叶</div>
+        <div class="g-stats">
+          <div><b>8</b><span>份资料</span></div>
+          <div><b>3</b><span>条笔记</span></div>
+          <div><b>5</b><span>条关联</span></div>
+        </div>
+        <div class="g-actions">
+          <button class="p">打开资料</button>
+          <button>局部图谱</button>
+          <button>问 AI</button>
+          <button>＋ 关联</button>
+        </div>
+        <div class="g-nb">
+          <h5>相连实体</h5>
+          <a href="#"><span class="d" style="background:var(--n2)"></span>DFT 的定义与性质</a>
+          <a href="#"><span class="d" style="background:var(--n3)"></span>FFT 快速算法</a>
+          <a href="#"><span class="d" style="background:var(--cue)"></span>DFT 与 FFT 的关系</a>
+          <a href="#"><span class="d" style="background:var(--n1)"></span>常见傅里叶变换的函数</a>
+          <a href="#"><span class="d" style="background:var(--n1)"></span>离散时间信号分析</a>
+        </div>
+      </div>
+
+      <div class="g-legend">
+        <div class="li"><span class="d" style="background:var(--n1)"></span>知识节点</div>
+        <div class="li"><span class="d" style="background:#A8AEA5;border:1px solid #fff;box-shadow:0 0 0 1px #A8AEA5"></span>资料</div>
+        <div class="li"><span class="sq"></span>笔记</div>
+        <div class="li"><span class="ln"></span>关联 / 归属</div>
+        <div class="li"><span class="ln" style="border-top:1px dashed var(--ink-3);background:none"></span>上下级</div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="ai">
+    <div class="ai-head">
+      <span class="dot"></span><b>伴学</b>
+      <span style="font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)">deepseek-chat</span>
+      <div class="sp"></div>
+      <button class="iconbtn" title="历史会话"><svg><use href="#i-hist"/></svg></button>
+      <button class="iconbtn" title="新对话"><svg><use href="#i-plus"/></svg></button>
+    </div>
+    <div class="ctx">
+      <span class="lbl">范围</span><span class="t">当前节点 · 傅里叶变换</span><span class="sw">切换</span>
+    </div>
+    <div class="msgs">
+      <div class="q"><div class="g">你</div><div class="b">解释一下这里的 DFT 和 FFT 有什么关系？</div></div>
+      <div class="a">
+        <div class="g">AI</div>
+        <div class="b">
+          <p>DFT 是定义在有限长离散序列上的变换：它把 <span style="font-family:var(--font-mono);font-size:12px">N</span> 个时域样本映射成 <span style="font-family:var(--font-mono);font-size:12px">N</span> 个频域系数。FFT 不是另一种变换，而是计算 DFT 的一类快速算法——它利用旋转因子的周期性和对称性，把 <span style="font-family:var(--font-mono);font-size:12px">O(N²)</span> 的运算量降到 <span style="font-family:var(--font-mono);font-size:12px">O(N log N)</span> <span class="cite">[1]</span>。</p>
+          <p>所以在课程里，DFT 回答“变换是什么”，FFT 回答“怎么算得快”。两者结果相同，差别在计算复杂度与适用规模 <span class="cite">[2]</span>。</p>
+          <div class="src">
+            <div><span class="i">[1]</span><span>《信号与系统》 › 第 6 章 · DFT 的定义与性质</span></div>
+            <div><span class="i">[2]</span><span>《数字信号处理》 › 3.4 · 快速傅里叶变换</span></div>
+          </div>
+          <div class="meta"><span class="ok">6 块资料</span><span>2 篇文档</span><span>1.8s</span><span>412 tokens</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="ai-foot">
+      <div class="composer">
+        <textarea placeholder="就当前节点继续追问…"></textarea>
+        <div class="cbar">
+          <span class="model">deepseek · chat · 按当前节点检索</span>
+          <button class="send" title="发送"><svg><use href="#i-send"/></svg></button>
+        </div>
+      </div>
+      <div class="hint"><span><span class="kbd">Ctrl</span> <span class="kbd">Enter</span> 发送</span><span>资料不出本机</span></div>
+    </div>
+  </aside>
+</div>
+
+<footer class="status">
+  <span>8 份资料</span><span class="sep"></span><span>373 块</span><span class="sep"></span><span>14 个节点</span>
+  <span class="sep"></span><span class="ok">索引就绪</span><span class="sep"></span><span>本地运行 · 数据不出本机</span>
+  <span class="sp"></span><span>概念稿 A · 书斋 / 非产品代码</span><span>v2.0</span>
+</footer>
+
+<script>
+(() => {
+  const svg = document.getElementById('gsvg');
+  const W = 760, H = 820;
+  const groups = [
+    {cx:235, cy:245, name:'信号与系统 · 傅里叶', color:'var(--n1)', n:16, r:150},
+    {cx:520, cy:310, name:'卷积与系统', color:'var(--n1)', n:12, r:120},
+    {cx:390, cy:565, name:'离散时间', color:'var(--n2)', n:11, r:120},
+    {cx:620, cy:620, name:'工程数学', color:'var(--n3)', n:9, r:105},
+    {cx:155, cy:610, name:'概率论', color:'var(--n5)', n:7, r:90}
+  ];
+  let seed = 17;
+  const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+  const nodes = [];
+  const edges = [];
+  // selected knowledge node and its core neighbors
+  const core = {id:'ft', label:'傅里叶变换', x:235, y:245, r:9, type:'k', color:'var(--n1)', group:0};
+  nodes.push(core);
+  const named = [
+    {id:'sig', label:'信号与系统', x:178, y:172, r:7, type:'k', color:'var(--n1)', group:0},
+    {id:'conv', label:'卷积', x:470, y:330, r:8, type:'k', color:'var(--n1)', group:1},
+    {id:'dft', label:'DFT', x:322, y:208, r:6, type:'k', color:'var(--n1)', group:0},
+    {id:'fft', label:'FFT', x:296, y:315, r:6, type:'k', color:'var(--n1)', group:0},
+    {id:'fser', label:'傅里叶级数', x:150, y:300, r:6, type:'k', color:'var(--n1)', group:0},
+    {id:'dsp', label:'数字信号处理', x:585, y:202, r:6, type:'k', color:'var(--n2)', group:1},
+    {id:'z', label:'z 变换', x:360, y:640, r:6, type:'k', color:'var(--n2)', group:2},
+    {id:'dtft', label:'DTFT', x:450, y:600, r:5.5, type:'k', color:'var(--n2)', group:2},
+    {id:'eng', label:'积分变换', x:655, y:600, r:6, type:'k', color:'var(--n3)', group:3},
+    {id:'prob', label:'随机信号', x:172, y:635, r:5.5, type:'k', color:'var(--n5)', group:4}
+  ];
+  named.forEach(n => nodes.push(n));
+  const labels = new Set(['ft','sig','conv','dft','fft','fser','dsp','z','dtft','eng','prob']);
+
+  // docs around selected nodes
+  const docs = [
+    {p:'ft', t:'doc'}, {p:'ft', t:'doc'}, {p:'ft', t:'doc'}, {p:'ft', t:'note'},
+    {p:'dft', t:'doc'}, {p:'fft', t:'doc'}, {p:'fser', t:'doc'},
+    {p:'conv', t:'doc'}, {p:'conv', t:'doc'}, {p:'conv', t:'note'},
+    {p:'z', t:'doc'}, {p:'dtft', t:'doc'}, {p:'dsp', t:'doc'},
+    {p:'eng', t:'doc'}, {p:'eng', t:'doc'}, {p:'prob', t:'note'}
+  ];
+  docs.forEach((d, i) => {
+    const p = nodes.find(n => n.id === d.p);
+    const a = rnd() * Math.PI * 2, rr = 28 + rnd() * 46;
+    nodes.push({id:'d' + i, label:'', x:p.x + Math.cos(a) * rr, y:p.y + Math.sin(a) * rr,
+      r:d.t === 'note' ? 3.2 : 3.6, type:d.t, color:d.t === 'note' ? 'var(--cue)' : '#A8AEA5', group:p.group});
+    edges.push({a:p.id, b:'d' + i, kind:d.t === 'note' ? 'note' : 'doc'});
+  });
+  // organic extra nodes
+  groups.forEach((g, gi) => {
+    const pts = [];
+    for (let i = 0; i < g.n; i++) {
+      const a = rnd() * Math.PI * 2, rr = 26 + Math.sqrt(rnd()) * g.r;
+      const x = g.cx + Math.cos(a) * rr, y = g.cy + Math.sin(a) * rr;
+      const id = 'g' + gi + '_' + i;
+      nodes.push({id, label:'', x, y, r:2.6 + rnd() * 2.2, type:'k', color:g.color, group:gi});
+      pts.push(id);
+      if (i > 0) edges.push({a:pts[Math.floor(rnd() * i)], b:id, kind:'k'});
+    }
+  });
+  // semantic cross links
+  const cross = [['ft','conv'],['ft','dft'],['ft','fft'],['ft','fser'],['ft','dtft'],['conv','z'],
+    ['dft','dtft'],['fft','dsp'],['dsp','conv'],['eng','ft'],['eng','z'],['prob','sig'],['prob','conv'],
+    ['sig','ft'],['sig','conv'],['sig','fser']];
+  cross.forEach(([a,b]) => edges.push({a,b,kind:'link'}));
+
+  const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const neigh = new Set(['ft']);
+  edges.forEach(e => { if (e.a === 'ft') neigh.add(e.b); if (e.b === 'ft') neigh.add(e.a); });
+
+  let html = '';
+  edges.forEach(e => {
+    const a = byId[e.a], b = byId[e.b]; if (!a || !b) return;
+    const hot = e.a === 'ft' || e.b === 'ft';
+    const dash = e.kind === 'k' ? ' stroke-dasharray="2 4"' : (e.kind === 'note' ? ' stroke-dasharray="1 3"' : '');
+    const op = hot ? .55 : .16;
+    html += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${e.kind==='k' ? '#6E7F79' : '#5F6A62'}" stroke-width="${hot?1.1:.8}" opacity="${op}"${dash}/>`;
+  });
+  nodes.forEach(n => {
+    if (n.id === 'ft') return;
+    const dim = !neigh.has(n.id);
+    const op = dim ? .28 : 1;
+    if (n.type === 'note') {
+      html += `<rect x="${n.x-3.4}" y="${n.y-3.4}" width="6.8" height="6.8" rx="1" fill="${n.color}" opacity="${op}"/>`;
+    } else {
+      const fill = n.type === 'doc' ? '#FAFAF6' : n.color;
+      const stroke = n.type === 'doc' ? '#8F988F' : 'none';
+      html += `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${fill}" stroke="${stroke}" stroke-width="1" opacity="${op}"/>`;
+    }
+    if (labels.has(n.id)) {
+      html += `<text x="${n.x + n.r + 5}" y="${n.y + 3.4}" font-family="Noto Sans SC, sans-serif" font-size="10.5" fill="#4B564E" opacity="${dim?.45:.95}">${n.label}</text>`;
+    }
+  });
+  // selected node
+  html += `<circle cx="${core.x}" cy="${core.y}" r="${core.r + 7}" fill="none" stroke="#2E5A4A" stroke-width="1" opacity=".28"/>`;
+  html += `<circle cx="${core.x}" cy="${core.y}" r="${core.r}" fill="#2E5A4A"/>`;
+  html += `<text x="${core.x + core.r + 7}" y="${core.y + 4}" font-family="Noto Serif SC, serif" font-size="13" font-weight="600" fill="#24463A">傅里叶变换</text>`;
+  svg.innerHTML = html;
+})();
+</script>
+</body>
+</html>

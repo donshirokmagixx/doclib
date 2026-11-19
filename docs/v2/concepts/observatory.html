@@ -1,0 +1,426 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocLib 2.0 · 概念稿 B · 观测台</title>
+<style>
+:root{
+  --font-ui:"Noto Sans SC","Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+  --font-read:"Noto Serif SC","Source Han Serif SC","SimSun",serif;
+  --font-mono:"Cascadia Mono","Consolas",monospace;
+  --bg:#0E1311; --ribbon:#0A0F0D; --panel:#141A17; --panel-2:#19211D; --panel-3:#1E2722;
+  --ink:#E2E5DE; --ink-2:#98A29B; --ink-3:#6C7871; --ink-4:#4A554E;
+  --line:#27302B; --line-2:#1F2823;
+  --accent:#8FB6A2; --accent-soft:#223029; --accent-ink:#A8C9B8;
+  --cue:#C18A67; --cue-soft:#33241D;
+  --mark:#4A4026; --danger:#C86B5A;
+  --n1:#6F9C85; --n2:#6F8FA0; --n3:#B08A68; --n4:#B39A5E; --n5:#9B6B76; --n6:#7E948B;
+  --r1:2px; --r2:4px; --r3:7px;
+  --dur:120ms; --ease:cubic-bezier(.2,.7,.3,1);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);
+  font-size:12.5px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg{display:block}
+::selection{background:#31463B}
+
+.app{height:calc(100vh - 26px);display:grid;
+  grid-template-columns:46px 272px minmax(0,1fr) 390px;min-height:0}
+.ribbon{background:var(--ribbon);border-right:1px solid var(--line);display:flex;flex-direction:column;
+  align-items:center;padding:11px 0 8px;gap:3px}
+.logo{width:28px;height:28px;margin-bottom:12px;color:var(--accent)}
+.ribbon .sp{flex:1}
+.rbtn{width:32px;height:32px;border-radius:var(--r2);display:grid;place-items:center;color:var(--ink-3);
+  position:relative;transition:color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.rbtn:hover{background:var(--panel-2);color:var(--ink)}
+.rbtn.active{color:var(--accent-ink);background:var(--accent-soft)}
+.rbtn.active::before{content:"";position:absolute;left:-7px;top:8px;bottom:8px;width:2px;background:var(--accent)}
+.rbtn svg{width:18px;height:18px}
+
+.explorer{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.exp-head{height:40px;display:flex;align-items:center;gap:7px;padding:0 12px 0 14px;border-bottom:1px solid var(--line-2)}
+.exp-head b{font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--ink)}
+.exp-head .n{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
+.exp-head .sp{flex:1}
+.iconbtn{width:24px;height:24px;border-radius:var(--r1);display:grid;place-items:center;color:var(--ink-3)}
+.iconbtn:hover{background:var(--panel-2);color:var(--ink)}
+.iconbtn svg{width:15px;height:15px}
+.partition{margin:9px 11px 3px;padding:7px 8px;border:1px solid var(--line);border-radius:var(--r2);
+  background:var(--panel-2);display:flex;align-items:center;gap:7px}
+.partition .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+.partition .nm{flex:1;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.partition .cnt{font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3)}
+.tree-wrap{flex:1;overflow:auto;padding:5px 7px 14px}
+.tree{list-style:none;margin:0;padding:0}
+.tree ul{list-style:none;margin:0;padding-left:13px;border-left:1px solid var(--line-2)}
+.row{height:26px;display:flex;align-items:center;gap:6px;padding:0 7px;border-radius:var(--r1);
+  color:var(--ink-2);cursor:default;user-select:none;position:relative}
+.row:hover{background:var(--panel-2);color:var(--ink)}
+.row.on{color:var(--ink)}
+.row.on::before{content:"";position:absolute;left:-7px;top:5px;bottom:5px;width:2px;background:var(--cue)}
+.row .caret{width:11px;color:var(--ink-4);font-size:8px;text-align:center;flex:none}
+.row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.row .cnt{font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.row.doc .nm{color:var(--ink-2);font-size:11.5px}
+.row.doc .fi{width:13px;display:grid;place-items:center;color:var(--ink-3);flex:none}
+.row.doc .fi svg{width:12px;height:12px}
+.row.doc.on .nm{color:var(--accent-ink)}
+.row .note{width:4px;height:4px;border-radius:1px;background:var(--cue);flex:none;margin:0 1px}
+.exp-foot{border-top:1px solid var(--line-2);padding:7px 11px;display:flex;align-items:center;gap:7px;
+  color:var(--ink-3);font-size:10.5px}
+.exp-foot .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r1);overflow:hidden;background:var(--panel-2)}
+.seg button{padding:2px 6px;font-size:10px;color:var(--ink-3)}
+.seg button.on{background:var(--panel-3);color:var(--ink)}
+
+.center{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+.tabbar{height:38px;display:flex;align-items:stretch;border-bottom:1px solid var(--line);
+  background:var(--ribbon);padding-left:4px;min-width:0}
+.tab{height:38px;display:flex;align-items:center;gap:6px;padding:0 10px;min-width:0;max-width:210px;
+  color:var(--ink-3);border-right:1px solid var(--line-2);position:relative;font-size:11.5px}
+.tab:hover{color:var(--ink-2);background:var(--panel-2)}
+.tab.on{color:var(--ink);background:var(--bg)}
+.tab.on::before{content:"";position:absolute;left:0;top:0;right:0;height:1px;background:var(--cue)}
+.tab .ic{color:var(--ink-3);flex:none}
+.tab .ic svg{width:13px;height:13px}
+.tab.on .ic{color:var(--accent)}
+.tab .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab .x{width:15px;height:15px;display:grid;place-items:center;opacity:0;color:var(--ink-3);flex:none}
+.tab:hover .x,.tab.on .x{opacity:1}
+.tab .dirty{width:4px;height:4px;border-radius:50%;background:var(--cue);opacity:0;flex:none}
+.tab.dirty .dirty{opacity:1}
+.tabbar .sp{flex:1}
+.tabbar .nav{display:flex;align-items:center;gap:1px;padding:0 5px}
+.tabbar .nav .iconbtn{width:25px;height:25px}
+.tabbar .add{width:28px;display:grid;place-items:center;color:var(--ink-3)}
+.tabbar .add:hover{background:var(--panel-2);color:var(--ink)}
+
+.reader{flex:1;min-height:0;overflow:auto;position:relative}
+.reader-inner{max-width:760px;margin:0 auto;padding:30px 46px 70px}
+.doc-kind{font-family:var(--font-mono);font-size:9px;color:var(--ink-3);letter-spacing:.06em;
+  display:flex;align-items:center;gap:7px}
+.doc-kind .d{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.doc-kind .sep{width:1px;height:9px;background:var(--line)}
+.doc-title{margin:12px 0 8px;font-family:var(--font-read);font-size:27px;line-height:1.35;font-weight:600;
+  letter-spacing:.01em;color:#EDEFE8}
+.doc-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px 12px;font-family:var(--font-mono);
+  font-size:9.5px;color:var(--ink-3);padding-bottom:14px;border-bottom:1px solid var(--line)}
+.doc-meta .path{color:var(--ink-2)}
+.doc-meta .tag{border:1px solid var(--line);border-radius:2px;padding:1px 5px}
+.doc-actions{display:flex;gap:5px;margin:12px 0 5px;flex-wrap:wrap}
+.doc-actions button{height:25px;padding:0 8px;border:1px solid var(--line);border-radius:var(--r1);
+  background:var(--panel);font-size:10.5px;color:var(--ink-2)}
+.doc-actions button:hover{border-color:var(--ink-3);color:var(--ink)}
+.doc-actions button.p{border-color:var(--accent);color:var(--accent-ink)}
+.read{padding-top:18px;font-family:var(--font-read);font-size:15px;line-height:1.92;color:#D6DAD2}
+.read p{margin:0 0 13px}
+.read .lead{font-size:15.5px;color:#E0E3DC}
+.read h2{font-family:var(--font-ui);font-size:14px;font-weight:600;color:#E9EBE4;
+  margin:25px 0 9px;display:flex;align-items:baseline;gap:10px;letter-spacing:.01em}
+.read h2 .no{font-family:var(--font-mono);font-size:9.5px;color:var(--cue);font-weight:400}
+.read .formula{margin:13px 0 15px;padding:12px 14px;border-left:1px solid var(--line);
+  background:rgba(255,255,255,.018);font-family:var(--font-read);font-size:15px;color:#E6E8E1}
+.read .formula .small{font-size:12.5px;color:var(--ink-2)}
+.read .cite{font-family:var(--font-mono);font-size:9px;color:var(--cue);vertical-align:super;line-height:0;
+  padding:0 1px;border-bottom:1px solid transparent;cursor:pointer}
+.read .cite:hover{border-bottom-color:var(--cue)}
+.read .picked{background:linear-gradient(transparent 55%,rgba(193,138,103,.17) 55%);
+  box-shadow:inset 0 -1px 0 rgba(193,138,103,.30)}
+.selbar{position:absolute;left:50%;top:355px;transform:translateX(-50%);display:flex;align-items:center;gap:1px;
+  background:#26312B;border:1px solid #3A473F;border-radius:var(--r2);padding:3px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.selbar button{height:22px;padding:0 7px;border-radius:1px;font-size:10px;color:#C9D2CB;white-space:nowrap}
+.selbar button:hover{background:#334139;color:#fff}
+.selbar .kv{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);padding:0 5px}
+.reader .end{height:40px}
+
+.rail{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.rail-top{height:336px;min-height:220px;display:flex;flex-direction:column;border-bottom:1px solid var(--line)}
+.rail-head{height:36px;display:flex;align-items:center;gap:7px;padding:0 11px 0 13px;border-bottom:1px solid var(--line-2)}
+.rail-head b{font-size:11px;font-weight:600;letter-spacing:.04em}
+.rail-head .meta{font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.rail-head .sp{flex:1}
+.localgraph{flex:1;position:relative;background:
+  radial-gradient(circle at 1px 1px, rgba(226,229,222,.08) 1px, transparent 1.2px) 0 0/20px 20px,
+  linear-gradient(180deg,#111714,#0F1512)}
+.localgraph svg{width:100%;height:100%}
+.lg-foot{height:28px;display:flex;align-items:center;gap:6px;padding:0 11px;border-top:1px solid var(--line-2);
+  font-size:9.5px;color:var(--ink-3);font-family:var(--font-mono)}
+.lg-foot .sp{flex:1}
+.lg-foot .chip{border:1px solid var(--line);border-radius:2px;padding:1px 4px;color:var(--ink-2)}
+.rail-split{height:5px;background:var(--line-2);position:relative;cursor:row-resize;flex:none}
+.rail-split::after{content:"";position:absolute;left:50%;top:1px;width:20px;height:2px;border-radius:2px;background:var(--ink-4);transform:translateX(-50%)}
+.ai{flex:1;display:flex;flex-direction:column;min-height:0}
+.ai-head{height:38px;display:flex;align-items:center;gap:7px;padding:0 11px 0 13px;border-bottom:1px solid var(--line-2)}
+.ai-head b{font-size:11px;font-weight:600;letter-spacing:.04em}
+.ai-head .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.ai-head .model{font-family:var(--font-mono);font-size:9px;color:var(--ink-3)}
+.ai-head .sp{flex:1}
+.ctx{margin:8px 10px 0;border:1px solid var(--line);border-radius:var(--r2);background:var(--panel-2);
+  display:flex;align-items:center;gap:7px;padding:6px 8px;font-size:10px;color:var(--ink-2)}
+.ctx .lbl{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
+.ctx .t{flex:1;min-width:0;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctx .sw{font-size:9.5px;color:var(--accent-ink)}
+.msgs{flex:1;overflow:auto;padding:12px 12px 6px}
+.q{display:flex;gap:7px;margin-bottom:11px}
+.q .g{width:15px;flex:none;font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);padding-top:2px}
+.q .b{font-size:12px;color:#E3E6DF;line-height:1.65}
+.a{display:flex;gap:7px;margin-bottom:9px}
+.a .g{width:15px;flex:none;font-family:var(--font-mono);font-size:8.5px;color:var(--cue);padding-top:2px}
+.a .b{min-width:0;font-size:11.5px;line-height:1.75;color:#CDD3CC}
+.a .b p{margin:0 0 7px}
+.a .b .cite{font-family:var(--font-mono);font-size:8.5px;color:var(--cue);vertical-align:super;line-height:0;cursor:pointer}
+.trace{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:8px;padding-top:7px;
+  border-top:1px solid var(--line-2);font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
+.trace .kv{color:var(--accent-ink)}
+.trace .t{border:1px solid var(--line);border-radius:2px;padding:1px 4px;color:var(--ink-2)}
+.srcs{margin-top:7px;border-top:1px solid var(--line-2);padding-top:6px;font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
+.srcs div{display:flex;gap:5px;line-height:1.7}
+.srcs .i{color:var(--cue);width:15px;flex:none}
+.composer-wrap{border-top:1px solid var(--line-2);padding:9px 10px 10px;background:var(--panel)}
+.composer{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel-2);padding:6px 7px 5px}
+.composer:focus-within{border-color:#3C5146;box-shadow:0 0 0 2px rgba(143,182,162,.06)}
+.composer textarea{width:100%;height:36px;border:0;resize:none;outline:none;background:none;color:var(--ink);
+  font-size:11.5px;line-height:1.6}
+.composer textarea::placeholder{color:var(--ink-3)}
+.cbar{display:flex;align-items:center;gap:6px;padding-top:3px}
+.cbar .model{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar .send{width:24px;height:24px;border-radius:var(--r1);background:var(--accent);color:#0E1311;display:grid;place-items:center}
+.cbar .send svg{width:13px;height:13px}
+.ai-foot-hint{display:flex;justify-content:space-between;font-size:8.5px;color:var(--ink-3);margin-top:6px;font-family:var(--font-mono)}
+.kbd{font-family:var(--font-mono);font-size:8px;border:1px solid var(--line);border-radius:2px;padding:0 3px;color:var(--ink-2)}
+
+.status{height:26px;display:flex;align-items:center;gap:14px;padding:0 12px;border-top:1px solid var(--line);
+  background:var(--ribbon);font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden}
+.status .sp{flex:1}
+.status .ok{color:var(--accent-ink)}
+.status .sep{width:1px;height:10px;background:var(--line)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-file" viewBox="0 0 20 20"><path d="M5 2.8h6l4 4v10.4H5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M11 2.8v4h4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 20 20"><circle cx="8.7" cy="8.7" r="4.3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m12 12 4.2 4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-graph" viewBox="0 0 20 20"><circle cx="5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="14.5" cy="4.8" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="14.5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="m6.8 5.5 6-.5M6.2 7.6l3.6 5.1M13.7 6.4l-1.9 6" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-note" viewBox="0 0 20 20"><path d="M5 3h10v14H5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 7h5M7.5 10h5M7.5 13h3.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-mind" viewBox="0 0 20 20"><circle cx="6" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="5.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="14" cy="14.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 9.3 12.3 6.3M8 10.7l4.3 3" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 20 20"><circle cx="10" cy="10" r="2.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M5 5l1.4 1.4M13.6 13.6 15 15M15 5l-1.4 1.4M6.4 13.6 5 15" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-theme" viewBox="0 0 20 20"><path d="M10 2.8a7.2 7.2 0 1 0 0 14.4z" fill="currentColor" opacity=".22"/><circle cx="10" cy="10" r="7.2" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 20 20"><path d="m6 8 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 20 20"><path d="M5 2.8h6l4 4v10.4H5z" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M11 2.8v4h4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M7 13.5h6" stroke="currentColor" stroke-width="1.1"/></symbol>
+  <symbol id="i-send" viewBox="0 0 20 20"><path d="M3.5 10 16.5 3.5 13 16l-3.2-5.2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="m9.8 10.8 3-3" stroke="currentColor" stroke-width="1.2"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 20 20"><path d="M4.5 5.5A6.8 6.8 0 1 1 3.4 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4.5 2.8v3.4h3.4M10 6.5V10l2.5 1.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></symbol>
+  <symbol id="i-back" viewBox="0 0 20 20"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 20 20"><path d="m7.5 4.5 5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="ribbon" aria-label="主导航">
+    <svg class="logo" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <path d="M6 8.2c3.2-1.2 5.6-1.2 8 0 2.4 1.2 4.8 1.2 8 0v12c-3.2 1.2-5.6 1.2-8 0-2.4-1.2-4.8-1.2-8 0z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M14 8.4v11.8" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+      <circle cx="20.6" cy="6.7" r="2.2" fill="#0E1311" stroke="currentColor" stroke-width="1.3"/>
+    </svg>
+    <button class="rbtn active" title="资料库"><svg><use href="#i-file"/></svg></button>
+    <button class="rbtn" title="搜索（Ctrl+K）"><svg><use href="#i-search"/></svg></button>
+    <button class="rbtn" title="关系图谱"><svg><use href="#i-graph"/></svg></button>
+    <button class="rbtn" title="笔记"><svg><use href="#i-note"/></svg></button>
+    <button class="rbtn" title="知识导图"><svg><use href="#i-mind"/></svg></button>
+    <div class="sp"></div>
+    <button class="rbtn" title="切换主题"><svg><use href="#i-theme"/></svg></button>
+    <button class="rbtn" title="设置"><svg><use href="#i-gear"/></svg></button>
+  </aside>
+
+  <aside class="explorer">
+    <div class="exp-head"><b>资料库</b><span class="n">8</span><div class="sp"></div>
+      <button class="iconbtn" title="搜索"><svg><use href="#i-search"/></svg></button>
+      <button class="iconbtn" title="导入资料"><svg><use href="#i-plus"/></svg></button>
+    </div>
+    <div class="partition" title="切换科目分区">
+      <span class="dot"></span><span class="nm">信号分析与处理</span><span class="cnt">5</span>
+      <svg width="11" height="11" style="color:var(--ink-3)"><use href="#i-chev"/></svg>
+    </div>
+    <div class="tree-wrap">
+      <ul class="tree">
+        <li>
+          <div class="row"><span class="caret">▾</span><span class="nm">信号与系统</span><span class="cnt">5</span></div>
+          <ul>
+            <li><div class="row"><span class="caret">▸</span><span class="nm">卷积</span><span class="cnt">1</span></div></li>
+            <li>
+              <div class="row"><span class="caret">▾</span><span class="nm">傅里叶</span><span class="cnt">3</span></div>
+              <ul>
+                <li><div class="row"><span class="caret">▸</span><span class="nm">傅里叶变换</span><span class="cnt">2</span></div></li>
+                <li><div class="row"><span class="caret"></span><span class="nm">常见傅里叶变换的函数</span><span class="cnt">2</span></div></li>
+              </ul>
+            </li>
+            <li><div class="row"><span class="caret">▸</span><span class="nm">离散时间信号分析</span><span class="cnt">0</span></div></li>
+            <li><div class="row doc on"><span class="caret"></span><span class="fi"><svg><use href="#i-pdf"/></svg></span><span class="nm">信号的卷积.pdf</span></div></li>
+            <li><div class="row doc"><span class="caret"></span><span class="note"></span><span class="nm">卷积定理的三种证明</span></div></li>
+          </ul>
+        </li>
+        <li><div class="row"><span class="caret">▸</span><span class="nm">工程数学</span><span class="cnt">1</span></div></li>
+        <li><div class="row"><span class="caret">▸</span><span class="nm">概率论</span><span class="cnt">0</span></div></li>
+        <li><div class="row"><span class="caret"></span><span class="nm" style="color:var(--ink-3)">未分类</span><span class="cnt">2</span></div></li>
+      </ul>
+    </div>
+    <div class="exp-foot"><div class="seg"><button class="on">结构</button><button>文件</button></div><span class="sp"></span><span>14 个节点</span></div>
+  </aside>
+
+  <main class="center">
+    <div class="tabbar">
+      <div class="tab"><span class="ic"><svg><use href="#i-graph"/></svg></span><span class="t">关系图谱</span><span class="dirty"></span><span class="x">×</span></div>
+      <div class="tab on"><span class="ic"><svg><use href="#i-pdf"/></svg></span><span class="t">信号的卷积.pdf</span><span class="dirty"></span><span class="x">×</span></div>
+      <div class="tab dirty"><span class="ic"><svg><use href="#i-note"/></svg></span><span class="t">卷积定理的三种证明</span><span class="dirty"></span><span class="x">×</span></div>
+      <button class="add" title="新建标签"><svg width="14" height="14"><use href="#i-plus"/></svg></button>
+      <div class="sp"></div>
+      <div class="nav">
+        <button class="iconbtn" title="后退"><svg width="14" height="14"><use href="#i-back"/></svg></button>
+        <button class="iconbtn" title="前进" style="opacity:.3"><svg width="14" height="14"><use href="#i-fwd"/></svg></button>
+      </div>
+    </div>
+
+    <div class="reader">
+      <div class="reader-inner">
+        <div class="doc-kind"><span class="d"></span>PDF · 解析文本<span class="sep"></span>信号与系统 / 卷积<span class="sep"></span>33 块</div>
+        <h1 class="doc-title">信号的卷积：原理、性质与变换域分析</h1>
+        <div class="doc-meta">
+          <span class="path">/ 信号分析与处理 / 信号与系统 / 卷积</span>
+          <span class="tag">已索引</span>
+          <span>1.8 MB</span>
+          <span>2026-10-12</span>
+          <span>33 块</span>
+        </div>
+        <div class="doc-actions">
+          <button class="p">问 AI 这篇资料</button>
+          <button>打开原文件</button>
+          <button>在图谱中定位</button>
+          <button>反向链接 3</button>
+          <button>复制链接</button>
+        </div>
+
+        <div class="read">
+          <p class="lead">信号与系统里，卷积不是一条需要死记的公式，而是一种把复杂输入拆成简单冲激、再把系统响应叠加起来的工作方法。理解这一点，后面的卷积定理、频域相乘才不会是孤立的结论。</p>
+
+          <h2><span class="no">2.1</span>从叠加到卷积</h2>
+          <p>设系统的输入为 <span style="font-style:italic">x(t)</span>，冲激响应为 <span style="font-style:italic">h(t)</span>。把输入分解成一串加权冲激：</p>
+          <div class="formula">x(t) = ∫ x(τ) δ(t − τ) dτ<br><span class="small">对线性时不变系统，每个冲激产生一个平移后的 h(t − τ)，叠加即得输出。</span></div>
+          <p class="picked">因此，系统的零状态响应可以写成卷积积分 <span class="cite">[2]</span>：</p>
+          <div class="formula">y(t) = x(t) * h(t) = ∫ x(τ) h(t − τ) dτ</div>
+          <p>这个式子的直观含义是：输出在某一时刻的值，等于输入在过去所有时刻的贡献之和，而每个贡献的权重由系统对“多久以前的输入”还记得多少决定。</p>
+
+          <h2><span class="no">2.2</span>三个可以直接手算的性质</h2>
+          <p>卷积的交换律、分配律和结合律，使我们可以先算最简单的部分，再把结果搬回原来的问题。与冲激函数卷积不改变波形，与阶跃函数卷积则相当于积分，这两条在考试和工程估算里出现得最多。</p>
+          <p>更值得注意的是，时域卷积对应频域相乘。这条定理把“卷积很难算”的问题转成了“乘法很好算”的问题，也是 FFT 能在工程里大规模使用的原因之一 <span class="cite">[3]</span>。</p>
+          <h2><span class="no">2.3</span>什么时候不该直接算卷积</h2>
+          <p>当信号长度达到 <span style="font-family:var(--font-mono);font-size:12.5px">10⁵</span> 量级时，直接做离散卷积的代价是 <span style="font-family:var(--font-mono);font-size:12.5px">O(N²)</span>。这时应当转到频域，用 FFT 计算乘积再变换回来；代价变成 <span style="font-family:var(--font-mono);font-size:12.5px">O(N log N)</span>。这不是数学上的新结论，而是同一结论在计算层面的用法。</p>
+        </div>
+        <div class="end"></div>
+      </div>
+      <div class="selbar">
+        <span class="kv">已选 18 字</span>
+        <button>问 AI</button><button>复制</button><button>高亮</button><button>建立关联</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="rail">
+    <section class="rail-top">
+      <div class="rail-head">
+        <b>局部图谱</b><span class="meta">卷积 · 2 跳</span><div class="sp"></div>
+        <button class="iconbtn" title="在全局图谱中打开"><svg width="14" height="14"><use href="#i-graph"/></svg></button>
+        <button class="iconbtn" title="收起"><svg width="14" height="14" viewBox="0 0 20 20"><path d="m5 12 5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button>
+      </div>
+      <div class="localgraph" id="localgraph"><svg id="lgsvg" viewBox="0 0 380 260" preserveAspectRatio="xMidYMid meet"></svg></div>
+      <div class="lg-foot"><span class="chip">资料 4</span><span class="chip">笔记 2</span><span class="chip">节点 2</span><span class="sp"></span><span>拖动可固定</span></div>
+    </section>
+    <div class="rail-split" title="调整局部图谱与伴学高度"></div>
+    <section class="ai">
+      <div class="ai-head"><span class="dot"></span><b>伴学</b><span class="model">deepseek-chat</span><div class="sp"></div>
+        <button class="iconbtn" title="历史"><svg><use href="#i-hist"/></svg></button>
+        <button class="iconbtn" title="新对话"><svg><use href="#i-plus"/></svg></button>
+      </div>
+      <div class="ctx"><span class="lbl">范围</span><span class="t">当前文档 · 信号的卷积.pdf</span><span class="sw">切换</span></div>
+      <div class="msgs">
+        <div class="q"><div class="g">Q</div><div class="b">为什么这里说“时域卷积对应频域相乘”？能结合上面的公式解释吗？</div></div>
+        <div class="a"><div class="g">A</div><div class="b">
+          <p>把卷积积分代入傅里叶变换，交换积分次序后会得到 <span style="font-family:var(--font-mono)">Y(jω)=X(jω)H(jω)</span>：时域的卷积运算，在频域变成了逐点相乘 <span class="cite">[1]</span>。</p>
+          <p>所以上面那条积分式并不是只能硬算：先对 <span style="font-family:var(--font-mono)">x</span> 和 <span style="font-family:var(--font-mono)">h</span> 做变换，相乘后再逆变换，往往更快。FFT 的价值就在这里 <span class="cite">[2]</span>。</p>
+          <div class="trace"><span class="kv">检索 6 块</span><span>·</span><span>命中 2 篇</span><span>·</span><span>1.8s</span><span>·</span><span class="t">卷积定理</span><span class="t">频域相乘</span><span class="t">卷积积分</span></div>
+          <div class="srcs">
+            <div><span class="i">[1]</span><span>《信号与系统》 › 4.3 卷积定理</span></div>
+            <div><span class="i">[2]</span><span>《数字信号处理》 › 3.4 FFT 与快速卷积</span></div>
+          </div>
+        </div></div>
+        <div class="a" style="opacity:.55"><div class="g">A</div><div class="b"><p>继续追问时，会带着这篇文档和上面的公式作为上下文；引用仍可点回原文对应段落。</p></div></div>
+      </div>
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea placeholder="就当前文档或选中文字继续追问…"></textarea>
+          <div class="cbar"><span class="model">deepseek · chat · 当前文档 + 选中文本</span><button class="send" title="发送"><svg><use href="#i-send"/></svg></button></div>
+        </div>
+        <div class="ai-foot-hint"><span><span class="kbd">Ctrl</span> <span class="kbd">Enter</span> 发送</span><span>资料不出本机</span></div>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<footer class="status">
+  <span>8 份资料</span><span class="sep"></span><span>373 块</span><span class="sep"></span><span>14 个节点</span>
+  <span class="sep"></span><span class="ok">索引就绪</span><span class="sep"></span><span>模型 deepseek-chat</span>
+  <span class="sp"></span><span>概念稿 B · 观测台 / 非产品代码</span><span>v2.0</span>
+</footer>
+
+<script>
+(() => {
+  const svg = document.getElementById('lgsvg');
+  const nodes = [
+    {id:'conv', label:'卷积', x:190, y:132, r:7, c:'var(--n1)'},
+    {id:'thm', label:'卷积定理', x:108, y:82, r:5, c:'var(--n1)'},
+    {id:'sys', label:'信号与系统', x:288, y:78, r:5, c:'var(--n1)'},
+    {id:'imp', label:'冲激函数', x:92, y:176, r:4, c:'var(--n2)'},
+    {id:'step', label:'阶跃函数', x:153, y:203, r:4, c:'var(--n2)'},
+    {id:'ft', label:'傅里叶变换', x:285, y:166, r:4.5, c:'var(--n2)'},
+    {id:'z', label:'z 变换', x:232, y:218, r:4, c:'var(--n2)'},
+    {id:'d1', label:'', x:156, y:60, r:3, c:'#9aa39b', doc:true},
+    {id:'d2', label:'', x:62, y:124, r:3, c:'#9aa39b', doc:true},
+    {id:'n1', label:'', x:128, y:242, r:2.8, c:'var(--cue)', note:true},
+    {id:'n2', label:'', x:330, y:128, r:2.8, c:'var(--cue)', note:true},
+    {id:'d3', label:'', x:342, y:214, r:3, c:'#9aa39b', doc:true},
+    {id:'d4', label:'', x:48, y:206, r:3, c:'#9aa39b', doc:true}
+  ];
+  const edges = [
+    ['conv','thm'],['conv','sys'],['conv','imp'],['conv','step'],['conv','ft'],['conv','z'],
+    ['conv','d1'],['conv','d2'],['conv','n1'],['conv','n2'],['ft','d3'],['sys','d3'],['step','d4'],
+    ['thm','d1'],['imp','d4'],['z','n1'],['sys','ft']
+  ];
+  const by = Object.fromEntries(nodes.map(n => [n.id, n]));
+  let h = '';
+  edges.forEach(([a,b]) => {
+    const x = by[a], y = by[b];
+    const hot = a === 'conv' || b === 'conv';
+    h += `<line x1="${x.x}" y1="${x.y}" x2="${y.x}" y2="${y.y}" stroke="${hot?'#8FB6A2':'#5A675F'}" stroke-width="${hot?1:.7}" opacity="${hot?.45:.22}"${a==='thm'||b==='thm'?' stroke-dasharray="2 3"':''}/>`;
+  });
+  nodes.forEach(n => {
+    if (n.id === 'conv') return;
+    if (n.note) {
+      h += `<rect x="${n.x-2.8}" y="${n.y-2.8}" width="5.6" height="5.6" rx="1" fill="${n.c}" opacity=".9"/>`;
+    } else {
+      const fill = n.doc ? '#111714' : n.c;
+      h += `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${fill}" stroke="${n.doc?'#8A958D':'none'}" stroke-width=".9" opacity="${n.doc?.85:1}"/>`;
+    }
+    if (n.label) h += `<text x="${n.x + n.r + 4}" y="${n.y + 3.2}" font-family="Noto Sans SC, sans-serif" font-size="9.5" fill="#AEB8B1">${n.label}</text>`;
+  });
+  h += `<circle cx="190" cy="132" r="14" fill="none" stroke="#8FB6A2" stroke-width="1" opacity=".3"/>`;
+  h += `<circle cx="190" cy="132" r="7" fill="#8FB6A2"/>`;
+  h += `<text x="201" y="136" font-family="Noto Serif SC, serif" font-size="11" font-weight="600" fill="#C7D9CF">卷积</text>`;
+  svg.innerHTML = h;
+})();
+</script>
+</body>
+</html>
