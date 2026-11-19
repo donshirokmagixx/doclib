@@ -101,6 +101,18 @@ def main():
     finally:
         server.stop_server(httpd)
 
+    print("5) 备份同秒不冲突")
+    from doclib import system
+    conn = db.open_db()
+    try:
+        a = system.backup(conn)
+        b = system.backup(conn)
+        check("backup1 ok", a.get("ok"), a)
+        check("backup2 ok", b.get("ok"), b)
+        check("文件名不同", a.get("file") != b.get("file"), (a.get("file"), b.get("file")))
+    finally:
+        conn.close()
+
     print("\n全部通过 ✅（临时库：%s）" % TMP)
     return 0
 

@@ -38,6 +38,10 @@ def backup(conn, keep: int = None) -> dict:
     config.ensure_dirs()
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     out = config.BACKUP_DIR / f"doclib-{stamp}.db"
+    n = 1
+    while out.exists():
+        out = config.BACKUP_DIR / f"doclib-{stamp}-{n}.db"
+        n += 1
     conn.execute("VACUUM INTO ?", (str(out),))
     removed = []
     files = sorted(config.BACKUP_DIR.glob("doclib-*.db"))

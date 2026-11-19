@@ -64,7 +64,7 @@ def main():
         a = tree.create_node(conn, "卷积", part)
         b = tree.create_node(conn, "傅里叶", part)
         doc_a = add_doc(conn, a, "卷积资料", "卷积定理告诉我们时域卷积等于频域相乘。卷积是线性时不变系统的核心。", "a.md")
-        doc_b = add_doc(conn, b, "傅里叶资料", "DFT 是离散傅里叶变换，FFT 是快速算法。傅里叶变换用于频谱分析。", "b.md")
+        doc_b = add_doc(conn, b, "傅里叶资料", "DFT 是离散傅里叶变换，FFT 是快速算法。傅里叶变换用于频谱分析，也与卷积定理相关。", "b.md")
         note = notebook.save_note(conn, title="我的傅里叶笔记", body_md="# 笔记\n\nFFT 是计算 DFT 的快速算法。\n",
                                   node_id=b, partition_id=part)
         add_provider(conn)
@@ -107,7 +107,16 @@ def main():
         bad2 = rag.ask(conn, "x", context={"kind": "node", "node_id": 99999})
         check("不存在节点被拒", bad2.get("ok") is False, bad2)
 
-        print("6) 旧调用不受 context 影响")
+        print("6) all 上下文：全库范围")
+        rall = rag.ask(conn, "卷积", context={"kind": "all"})
+        check("all ok", rall.get("ok"), rall)
+        check("all context=all", (rall.get("context") or {}).get("kind") == "all")
+        check("all partition 为空", (rall.get("context") or {}).get("partition_id") is None)
+        rall2 = rag.ask(conn, "傅里叶", context={"kind": "all"})
+        check("all 能检索到另一篇", rall2.get("ok") and rall2["sources"]
+              and any(s["doc_id"] == doc_b for s in rall2["sources"]), rall2.get("sources"))
+
+        print("7) 旧调用不受 context 影响")
         old = rag.ask(conn, "卷积", node_id=a, scope="subtree", partition_id=part)
         check("旧调用 ok", old.get("ok"), old)
         check("旧调用 context 为空", old.get("context") is None)

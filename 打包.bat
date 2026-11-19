@@ -1,81 +1,43 @@
-﻿@echo off
+@echo off
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
-title 打包 DocLib
+title Build DocLib 2.0
 
-echo.
-echo   ===== 打包 DocLib �? exe =====
-echo.
-
-set "PY="
-for %%P in (
-  "C:\ProgramData\anaconda3\python.exe"
-  "%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
-  "%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
-  "%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
-) do (
-  if not defined PY if exist %%P (
-    %%P -c "import sys" >nul 2>nul && set "PY=%%~P"
+rem Build into a fresh dist-v2.0 folder. NEVER deletes dist\DocLib\data.
+set "PY=%~dp0.venv\Scripts\python.exe"
+if not exist "%PY%" (
+  where python >nul 2>nul
+  if errorlevel 1 (
+    echo [x] Python not found. Create .venv first.
+    pause
+    exit /b 1
   )
+  set "PY=python"
 )
-if not defined PY (
-  where python >nul 2>nul && set "PY=python"
-)
-if not defined PY (
-  echo   [x] 没找�? Python
+
+echo [1/3] Clean build folders: build-v2.0, dist-v2.0
+if exist "build-v2.0" rmdir /s /q "build-v2.0"
+if exist "dist-v2.0" rmdir /s /q "dist-v2.0"
+
+echo [2/3] PyInstaller build
+"%PY%" -m PyInstaller --noconfirm --distpath dist-v2.0 --workpath build-v2.0 DocLib.spec
+if errorlevel 1 (
+  echo [x] Build failed.
   pause
   exit /b 1
 )
 
-echo   使用 Python: %PY%
-echo   1/4 �?�? PyInstaller...
-"%PY%" -c "import PyInstaller" 2>nul
-if errorlevel 1 (
-  echo   安�?? PyInstaller...
-  "%PY%" -m pip install pyinstaller
-)
-
-rem ---- 关键：先把产品数�?�?到安全位�?（PyInstaller --noconfirm 会清�? dist\DocLib�?----
-echo   2/4 备份产品数据...
-if exist "dist\DocLib\data" (
-  if exist "_pkgdata_tmp" rmdir /s /q "_pkgdata_tmp"
-  move "dist\DocLib\data" "_pkgdata_tmp" >nul
-  echo       已把 dist\DocLib\data 临时移到 _pkgdata_tmp
-) else (
-  echo       没有现成产品数据，稍后用 DocLib\data 生成
-)
-
-echo   3/4 �?始打包（�? 1-2 分钟，�?�稍等）...
-"%PY%" -m PyInstaller --noconfirm --log-level WARN DocLib.spec
-if errorlevel 1 (
-  echo.
-  echo   [x] 打包失败，�?�看上面的报错�??
-  if exist "_pkgdata_tmp" (
-    echo       正在还原产品数据...
-    if exist "dist\DocLib\data" rmdir /s /q "dist\DocLib\data"
-    move "_pkgdata_tmp" "dist\DocLib\data" >nul
-  )
-  pause
-  exit /b 1
-)
-
-rem ---- 还原：优先用刚才移走的产品数�?，否则用源码数据 ----
-echo   4/4 还原产品数据...
-if exist "_pkgdata_tmp" (
-  if exist "dist\DocLib\data" rmdir /s /q "dist\DocLib\data"
-  move "_pkgdata_tmp" "dist\DocLib\data" >nul
-  echo       已还原原产品数据
-) else (
-  if exist "data" (
-    robocopy "data" "dist\DocLib\data" /E /NFL /NDL /NJH /NJS /NP /XD models >nul
-    echo       已从 DocLib\data 复制�?份（不含 models�?
-  )
-)
-if exist "build" rmdir /s /q "build"
+echo [3/3] Copy docs and make ZIP
+copy /y README.md "dist-v2.0\DocLib\README.md" >nul
+copy /y CHANGELOG.md "dist-v2.0\DocLib\CHANGELOG.md" >nul
+copy /y THIRD_PARTY_NOTICES.md "dist-v2.0\DocLib\THIRD_PARTY_NOTICES.md" >nul
+copy /y LICENSE "dist-v2.0\DocLib\LICENSE" >nul
+copy /y "解除锁定.bat" "dist-v2.0\DocLib\解除锁定.bat" >nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'dist-v2.0\DocLib' -DestinationPath 'dist-v2.0\DocLib-2.0.0-win64.zip' -CompressionLevel Optimal -Force"
 
 echo.
-echo   ===== 完成 =====
-echo   产物: dist\DocLib\  (�? DocLibW.exe 原生窗口 / DocLib.exe 浏�?�器�? / data)
-echo.
+echo Done: dist-v2.0\DocLib\DocLib.exe
+echo ZIP : dist-v2.0\DocLib-2.0.0-win64.zip
+echo The old dist\DocLib (if any) was not touched.
 pause

@@ -104,6 +104,21 @@ def main():
                 did = it.get("doc_id")
                 if did:
                     importer.set_doc_nodes(conn, int(did), [int(nid)])
+
+    # 第二个课程分区：验证多科目颜色/筛选、全库图谱与 AI 全库范围
+    eng = tree.create_node(conn, "工程数学", None)
+    for name, desc in [("级数", "数项级数与函数项级数的收敛判别。"),
+                       ("复变函数", "解析函数、留数定理与积分计算。"),
+                       ("积分变换", "傅里叶变换与拉普拉斯变换在工程中的应用。")]:
+        nid = tree.create_node(conn, name, eng)
+        p = src / f"{name}.pdf.md"
+        p.write_text(f"# {name}\n\n## 概念\n\n{desc}\n\n## 工程数学\n\n这部分与信号与系统共享积分变换工具。\n",
+                     encoding="utf-8")
+        rep = importer.import_path(conn, str(p), mount_mode="auto")
+        for it in rep.get("items", []):
+            did = it.get("doc_id")
+            if did:
+                importer.set_doc_nodes(conn, int(did), [int(nid)])
     # 重新读取节点 id（演示笔记挂到具体主题）
     ft = conn.execute("SELECT id FROM nodes WHERE name='傅里叶变换' AND deleted_at IS NULL LIMIT 1").fetchone()["id"]
     conv = conn.execute("SELECT id FROM nodes WHERE name='卷积' AND deleted_at IS NULL LIMIT 1").fetchone()["id"]

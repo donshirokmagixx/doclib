@@ -54,7 +54,7 @@ def _fail_hint(err: str) -> None:
         pass
 
 
-def run_window(port: int = None, title: str = "DocLib · 个人 Word 资料库",
+def run_window(port: int = None, title: str = "DocLib 2.0 · 本地知识工作台",
                width: int = 1320, height: int = 880):
     from .web import server
 

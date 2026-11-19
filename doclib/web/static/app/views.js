@@ -225,7 +225,7 @@ async function renderGraph(tab, host, state, actions) {
         }},
         { selector: 'node[kind="document"]', style: { 'background-opacity': 0, 'border-width': 1, 'border-color': v('--ink-3'), shape: 'ellipse' } },
         { selector: 'node[kind="note"]', style: { shape: 'round-rectangle', 'border-width': 1, 'border-color': v('--cue') } },
-        { selector: 'node.show-label', style: { 'text-opacity': 1, 'border-width': 2, 'border-color': v('--accent') } },
+        { selector: 'node.show-label', style: { 'text-opacity': 1 } },
         { selector: 'node.selected', style: { 'border-width': 3, 'border-color': v('--accent'), 'overlay-color': v('--accent'), 'overlay-opacity': .12, 'overlay-padding': 5 } },
         { selector: 'node.dim', style: { opacity: .25, 'text-opacity': 0 } },
         { selector: 'edge', style: {
@@ -246,7 +246,7 @@ async function renderGraph(tab, host, state, actions) {
     // 大图只给最重要的实体常显标签；其余 hover/选中显示，避免文字互相压住
     const labelNodes = Array.from(cy.nodes()).filter(n => n.data('kind') !== 'document')
       .sort((a, b) => (b.data('degree') || 0) - (a.data('degree') || 0));
-    labelNodes.slice(0, 42).forEach(n => n.addClass('show-label'));
+    labelNodes.slice(0, 32).forEach(n => n.addClass('show-label'));
     cy.on('zoom', () => {
       const z = cy.zoom();
       if (z > 1.25) labelNodes.forEach(n => n.addClass('show-label'));
@@ -283,8 +283,8 @@ async function renderGraph(tab, host, state, actions) {
     const name = hasFcose ? 'fcose' : 'cose';
     const opts = name === 'fcose' ? {
       name, animate: false, randomize: force, quality: 'default',
-      nodeSeparation: 110, idealEdgeLength: 120, nodeRepulsion: 9000,
-      gravity: 0.25, packComponents: true,
+      nodeSeparation: 150, idealEdgeLength: 150, nodeRepulsion: 24000,
+      gravity: 0.15, packComponents: true,
       fit: true, padding: 60, numIter: 1400,
     } : {
       name, animate: false, randomize: force, fit: true, padding: 40,
@@ -1050,7 +1050,7 @@ async function renderSettings(tab, host, state, actions) {
     main.append(el('h2', { text: 'DocLib 2.0' }));
     main.append(el('div', { class: 'sub', text: '纯本地知识库 · 资料 / 图谱 / 笔记 / AI 伴学。' }));
     main.append(el('div', { class: 'set-sec' }, [
-      el('div', { class: 'kv' }, [el('b', { text: '版本' }), el('span', { text: 'v2.0.0-dev' })]),
+      el('div', { class: 'kv' }, [el('b', { text: '版本' }), el('span', { text: 'v2.0.0' })]),
       el('div', { class: 'kv' }, [el('b', { text: '数据目录' }), el('span', { text: state.health?.db || '' })]),
       el('div', { class: 'kv' }, [el('b', { text: 'WebView2' }), el('span', { text: 'Chromium 157（本机）' })]),
     ]));

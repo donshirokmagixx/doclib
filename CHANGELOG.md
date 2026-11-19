@@ -1,4 +1,19 @@
-## V1.1.2（2026-11-19，r16）
+## V2.0.0（2026-11-19，v2.0-dev）
+
+Obsidian 式 AI 知识工作台升级：
+
+- 统一三栏工作区：左侧资料库树、中央多标签、右侧固定完整高度 AI 伴学；浅/深主题仅改变 token，不改变尺寸/布局
+- 真正的知识图谱：`/api/v2/graph`、节点/资料/笔记实体、层级/挂载/手工/AI/wikilink 边、全局/局部、过滤、局部图谱中央标签、树联动
+- 文档阅读器：`/api/v2/reader|raw|file`、TOC、分页、Markdown/TXT、PDF iframe + 解析文本回退、Range、引用定位高亮、反向链接
+- AI 上下文：`partition | all | node | document | note | selection` 六种范围、实际范围可见、`qa_v4` / `PROMPT_VERSION=4`、选文/笔记来源、消息级 context、引用回跳
+- 笔记与双链：`0007_notes_links`、SQLite Markdown 笔记、FTS、自动保存/冲突、`[[doc|node|note]]` 稳定 ID、反链、Markdown 导入导出
+- 迁移与持久化：`0006_graph_context`、事务迁移 + 迁移前备份 + 失败回滚、`schema_version=0007`、`workspace.json` 原子持久化/损坏回退
+- 旧功能保留：分区/全部科目、导入、搜索、模型/密钥、Word 问答导出、导图嵌入、备份/回收站/重建索引、安全校验
+- 安全：CSP、XFO SAMEORIGIN（PDF 需要）、Host/Origin/JSON 校验、Range、静态 404/MIME
+- 测试：13 个 Python 测试全过（含 context/migrations/workspace/http_v2）；Playwright E2E 覆盖图谱/阅读/AI/选文/引用/笔记/导入/主题/窄窗
+- 文档：`docs/v2/PLAN|DESIGN_SYSTEM|ARCHITECTURE|PROGRESS|DECISIONS`、截图矩阵、第三方许可
+
+
 
 - 导图导出落盘：PNG/SVG 统一保存到 `data/mindmaps/`，界面提示完整路径（不再依赖浏览器下载目录）
 - 生成导图可选择节点：默认全选，勾父带子、取消同理；只对选中节点布局

@@ -67,12 +67,17 @@ export function mountShell(root, state, actions) {
     ]);
     explorer.append(head);
     const psel = el('select', { class: 'select', title: '切换科目分区' });
+    psel.append(el('option', { value: 'all', text: '全部科目' }));
     for (const p of state.partitions) {
       const o = el('option', { value: String(p.id), text: `${p.name}${p.doc_count ? ` · ${p.doc_count}` : ''}` });
       if (p.id === state.partitionId) o.selected = true;
       psel.append(o);
     }
-    psel.addEventListener('change', () => actions.changePartition(Number(psel.value)));
+    if (state.partitionId == null) psel.value = 'all';
+    psel.addEventListener('change', () => {
+      const v = psel.value;
+      actions.changePartition(v === 'all' ? null : Number(v));
+    });
     explorer.append(el('div', { class: 'partition-row' }, [
       el('span', { class: 'dot' }), psel,
     ]));
@@ -290,7 +295,7 @@ export function mountShell(root, state, actions) {
     statusbar.append(seg(state.provider ? `模型 ${state.provider}` : '未配置模型'));
     statusbar.append(el('div', { class: 'grow', style: { flex: 1 } }));
     statusbar.append(seg('本地运行 · 数据不出本机'));
-    statusbar.append(seg('v2.0.0-dev'));
+    statusbar.append(seg('v2.0.0'));
   }
 
   function applyLayout() {

@@ -48,10 +48,14 @@ async function boot() {
     state.providers = data.providers || [];
     state.provider = data.current_provider || '';
     state.workspace = normalizeWorkspace(data.workspace);
-    const savedPart = Number(localStorage.getItem('doclib.partition') || NaN);
-    state.partitionId = state.partitions.some(p => p.id === savedPart)
-      ? savedPart
-      : (data.partition ?? state.partitions[0]?.id ?? null);
+    const savedRaw = localStorage.getItem('doclib.partition');
+    if (savedRaw === 'all') state.partitionId = null;
+    else {
+      const savedPart = Number(savedRaw || NaN);
+      state.partitionId = state.partitions.some(p => p.id === savedPart)
+        ? savedPart
+        : (data.partition ?? state.partitions[0]?.id ?? null);
+    }
     applyTheme(state.workspace, state.workspace.theme || 'dark');
     await loadPartitionData(state.partitionId);
 
@@ -190,8 +194,9 @@ Object.assign(actions, {
     activateTab(t.id);
   },
   newNote(opts = {}) {
+    const pid = opts.partitionId || state.partitionId || state.partitions[0]?.id || null;
     const t = wsOpenTab(state.workspace, 'note', {
-      noteId: null, title: '未命名笔记', partitionId: opts.partitionId || state.partitionId,
+      noteId: null, title: '未命名笔记', partitionId: pid,
       nodeId: opts.nodeId || null,
     }, { title: '未命名笔记' });
     saveWorkspace(state.workspace);
@@ -310,7 +315,7 @@ Object.assign(actions, {
     try {
       const r = await api.post('/api/v2/notes/save', {
         title: `伴学笔记 · ${new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
-        body_md: body, partition_id: ctx?.partition_id || state.partitionId,
+        body_md: body, partition_id: ctx?.partition_id || state.partitionId || state.partitions[0]?.id || null,
         node_id: ctx?.node_id || null,
       });
       if (r.ok === false) throw new Error(r.error || '保存失败');
@@ -349,12 +354,14 @@ Object.assign(actions, {
     toast(theme === 'system' ? '跟随系统主题' : theme === 'light' ? '浅色主题' : '深色主题');
   },
   async changePartition(pid) {
-    if (!pid || pid === state.partitionId) return;
-    state.partitionId = pid;
-    localStorage.setItem('doclib.partition', String(pid));
+    const all = pid === 0 || pid === 'all' || pid === null || pid === undefined;
+    const next = all ? null : Number(pid);
+    if (next === state.partitionId) return;
+    state.partitionId = next;
+    localStorage.setItem('doclib.partition', all ? 'all' : String(next));
     const t = currentTab();
-    if (t && t.kind === 'graph') { t.params.partitionId = pid; }
-    await loadPartitionData(pid);
+    if (t && t.kind === 'graph') { t.params.partitionId = next; }
+    await loadPartitionData(next);
     shell.renderExplorer(); shell.renderStatus();
     if (t && t.kind === 'graph') activateTab(t.id, { silent: true });
     else if (t && t.kind === 'search') activateTab(t.id, { silent: true });

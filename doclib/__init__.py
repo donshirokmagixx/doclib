@@ -5,4 +5,4 @@
 不需要 pip install 任何东西。
 """
 
-__version__ = "0.1.0"
+__version__ = "2.0.0"

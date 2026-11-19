@@ -78,7 +78,9 @@ export function createAIPanel(state, actions) {
 
   function contextOptions() {
     const t = state.activeTab;
-    const out = [{ mode: 'auto', label: '跟随当前内容' }, { mode: 'partition', label: '当前分区' }];
+    const all = state.partitionId == null;
+    const out = [{ mode: 'auto', label: '跟随当前内容' },
+      { mode: 'partition', label: all ? '全部资料库' : '当前分区' }];
     if (t && t.kind === 'doc') out.push({ mode: 'document', label: '当前文档' });
     if (t && t.kind === 'note') out.push({ mode: 'note', label: '当前笔记' });
     if (t && (t.kind === 'node' || (t.kind === 'graph' && t.params?.scope === 'local'))) out.push({ mode: 'node', label: '当前节点' });
@@ -91,7 +93,12 @@ export function createAIPanel(state, actions) {
 
   function contextDefaultLabel(ctx) {
     if (!ctx) return '';
-    return { partition: '当前分区', node: '当前节点', document: '当前文档', selection: '选中文字', note: '当前笔记' }[ctx.kind] || '';
+    return { partition: '当前分区', node: '当前节点', document: '当前文档', selection: '选中文字', note: '当前笔记', all: '全部资料库' }[ctx.kind] || '';
+  }
+
+  function partitionContext(pid) {
+    if (pid == null) return { kind: 'all', partition_id: null, label: '全部资料库' };
+    return { kind: 'partition', partition_id: pid, label: `当前分区 · ${state.partitions.find(p => p.id === pid)?.name || ''}` };
   }
 
   function contextForMode(mode) {
@@ -115,11 +122,11 @@ export function createAIPanel(state, actions) {
         if (d) return { kind: 'document', doc_id: Number(d[1]), partition_id: pid, label: `当前文档 · ${t.params?.title || t.title}` };
       }
     }
-    return { kind: 'partition', partition_id: pid, label: `当前分区 · ${state.partitions.find(p => p.id === pid)?.name || ''}` };
+    return partitionContext(pid);
   }
 
   function defaultContextForTab(tab) {
-    if (!tab) return { kind: 'partition', partition_id: state.partitionId, label: '当前分区' };
+    if (!tab) return partitionContext(state.partitionId);
     if (tab.kind === 'doc') return { kind: 'document', doc_id: tab.params.docId, partition_id: state.partitionId, label: `当前文档 · ${tab.title}` };
     if (tab.kind === 'note') return { kind: 'note', note_id: tab.params.noteId, partition_id: state.partitionId, label: `当前笔记 · ${tab.title}` };
     if (tab.kind === 'node') return { kind: 'node', node_id: tab.params.nodeId, partition_id: state.partitionId, label: `当前节点 · ${tab.title}` };
@@ -130,13 +137,17 @@ export function createAIPanel(state, actions) {
       const d = /^document:(\d+)$/.exec(c);
       if (d) return { kind: 'document', doc_id: Number(d[1]), partition_id: state.partitionId, label: `当前文档 · ${tab.params?.title || tab.title}` };
     }
-    return { kind: 'partition', partition_id: state.partitionId, label: `当前分区 · ${state.partitions.find(p => p.id === state.partitionId)?.name || ''}` };
+    return partitionContext(state.partitionId);
   }
 
   function setActiveTab(tab) {
     state.activeTab = tab;
-    if (!state.ai.pendingSelection || tab?.kind !== 'doc') {
-      if (state.ai.pendingSelection && tab?.kind !== 'doc') state.ai.pendingSelection = null;
+    const sel = state.ai.pendingSelection;
+    if (sel && (tab?.kind !== 'doc' || Number(tab.params?.docId) !== Number(sel.doc_id))) {
+      state.ai.pendingSelection = null;
+      const ta = composer.querySelector('textarea');
+      if (ta && ta.value === '解释这段内容：') ta.value = '';
+      setComposerHint('实际检索范围以上方「范围」为准');
     }
     // 自动跟随中央内容；用户可随时用下拉改为当前分区/文档/节点
     state.ai.contextMode = 'auto';
@@ -205,7 +216,7 @@ export function createAIPanel(state, actions) {
         question: q,
         context: contextPayload(ctx),
         conversation_id: state.ai.conversationId || null,
-        partition: ctx.partition_id || state.partitionId,
+        partition: ctx.partition_id ?? state.partitionId,
         scope: ctx.kind === 'node' ? 'subtree' : 'all',
         node: ctx.node_id || null,
       };

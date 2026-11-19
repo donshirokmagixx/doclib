@@ -48,3 +48,5 @@ Thumbs.db
 
 # 例外：源码模块不能被 secrets* 规则误伤
 !doclib/secrets.py
+dist-v2.0/
+build-v2.0/

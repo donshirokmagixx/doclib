@@ -488,7 +488,7 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
             return {"ok": False, "error": str(e)}
         if ctx:
             node_id = ctx.get("node_id")
-            scope = "all" if ctx["kind"] in ("partition", "document", "selection", "note") else "subtree"
+            scope = "all" if ctx["kind"] in ("partition", "all", "document", "selection", "note") else "subtree"
             if ctx.get("partition_id") is not None:
                 partition_id = ctx["partition_id"]
 
@@ -583,7 +583,7 @@ def ask(conn, question: str, node_id: Optional[int] = None, scope: str = "subtre
         chunks = _chunk_candidates(conn, retrieval_query, node_id, scope, top_k,
                                    partition_id=partition_id, doc_ids=doc_ids)
         # 分区/节点上下文可带用户笔记（低权重），文档/选文上下文不混入其他笔记
-        if ctx and ctx.get("kind") in ("partition", "node"):
+        if ctx and ctx.get("kind") in ("partition", "node", "all"):
             notes = _note_candidates(conn, retrieval_query, partition_id=partition_id,
                                      limit=min(3, top_k))
             if notes:

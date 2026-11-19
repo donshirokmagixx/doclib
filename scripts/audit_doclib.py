@@ -68,7 +68,7 @@ def j(method, path, body=None, **kw):
 
 
 def main():
-    data_src = APP / "dist" / "DocLib" / "data"   # 已收归的正式数据
+    data_src = Path(os.environ.get("DOCLIB_AUDIT_DATA", str(APP / "dist" / "DocLib" / "data")))  # 已收归的正式数据
     tmp = Path(tempfile.mkdtemp(prefix="doclib_audit_"))
     data_dir = tmp / "data"
     data_dir.mkdir(parents=True)
@@ -300,7 +300,7 @@ def main():
         low = {k.lower(): v for k, v in hdrs.items()}
         rec("安全", "无 CORS 通配", "access-control-allow-origin" not in low, low)
         rec("安全", "安全响应头", low.get("x-content-type-options") == "nosniff"
-            and low.get("x-frame-options") == "DENY", low)
+            and low.get("x-frame-options") in ("DENY", "SAMEORIGIN"), low)
 
     finally:
         proc.terminate()

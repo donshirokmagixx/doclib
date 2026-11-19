@@ -60,7 +60,7 @@ def normalize(conn, raw) -> Optional[dict]:
             kind = "node"
         elif raw.get("partition_id"):
             kind = "partition"
-    if kind not in ("partition", "node", "document", "selection", "note"):
+    if kind not in ("partition", "node", "document", "selection", "note", "all"):
         raise ContextError("context.kind 不合法")
 
     partition_id = _validate_partition(conn, _int(raw.get("partition_id")))
@@ -76,6 +76,12 @@ def normalize(conn, raw) -> Optional[dict]:
             raise ContextError("缺少分区")
         if doc_id or note_id:
             raise ContextError("分区上下文不能同时带文档/笔记")
+        node_id = None
+
+    elif kind == "all":
+        if doc_id or note_id:
+            raise ContextError("全库上下文不能同时带文档/笔记")
+        partition_id = None
         node_id = None
 
     elif kind == "node":
@@ -137,9 +143,12 @@ def normalize(conn, raw) -> Optional[dict]:
         "document": "当前文档",
         "selection": "选中文字",
         "note": "当前笔记",
+        "all": "全部资料库",
     }[kind]
     target = ""
-    if kind == "partition" and partition_id:
+    if kind == "all":
+        label = "全部资料库"
+    elif kind == "partition" and partition_id:
         row = conn.execute("SELECT name FROM nodes WHERE id=?", (partition_id,)).fetchone()
         target = row["name"] if row else ""
     elif kind == "node" and node_id:

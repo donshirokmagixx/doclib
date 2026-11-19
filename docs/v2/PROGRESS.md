@@ -13,8 +13,8 @@
 | Phase 2 迁移+图谱 | ✅ 基本完成 | 0006/0007、迁移事务/备份、graph API、Cytoscape/fcose、全局/局部/筛选/信息面板/树联动 |
 | Phase 3 阅读器+AI 上下文 | ✅ 基本完成 | reader/range/markdown/PDF 分支、选区、引用跳转；context 五模式、qa_v4、消息 context |
 | Phase 4 笔记/双链/增强 | ✅ 基本完成 | notes/note_fts/note_links、编辑器/预览/反链、Markdown 导入导出、AI 存笔记、关系 API |
-| Phase 5 质量/视觉 | 🟡 进行中 | 13 个 Python 测试全过；真实截图矩阵/视觉审计/WebView2/打包仍待完成 |
-| Phase 6 交付 | ⬜ 未开始 | 本地构建/ZIP/README/CHANGELOG/限制说明 |
+| Phase 5 质量/视觉 | ✅ 完成 | 13 个 Python 测试全过；审计 58/60（2 个 demo 数据前置）；截图矩阵/视觉审计/原生窗口冒烟完成 |
+| Phase 6 交付 | ✅ 完成 | `dist-v2.0` 构建成功、干净 ZIP、校验和；未 push |
 
 ## 已完成（按文件）
 
@@ -67,10 +67,17 @@
 - 浅/深主题切换时 AI 面板尺寸/三栏宽度不变（374×874 / 268）。
 - 920/1100 窄窗：抽屉布局可打开（待复测截图）。
 
+## 最终交付（2026-11-19）
+
+- 测试：13/13 退出码 0；`test_http_v2` 新增同秒备份不冲突；前端 6 个 ESM 通过 `node --check`。
+- 审计：demo fixture 58/60；剩 `GET /api/search` 对“卷积定理”在 demo 语料无命中（v2 统一搜索已手工通过）与 audit 的 tree/indent 前置条件。
+- 构建：`DocLib.spec` + PyInstaller onedir，`dist-v2.0/DocLib` 56.7MB；原生 WebView2 窗口冒烟 `MainWindowTitle='DocLib 2.0 · 本地知识工作台'`；打包 exe 的 `--browser` 模式 API/静态资源 200。
+- ZIP：`dist-v2.0/DocLib-2.0.0-win64.zip`，33.1MB，SHA256 见 `dist-v2.0/SHA256SUMS.txt`；无 `data/`，保留 `使用说明.txt`/`解除锁定.bat`。
+- 截图：`docs/v2/screenshots/01..13`；视觉评分见 `VISUAL_AUDIT.md`；验收见 `TEST_REPORT.md`。
+- 未 push；旧 `dist/DocLib` 未被覆盖。
+
 ## 未解决 / 下一步
-- 视觉：最终 8 张矩阵截图、`ds-design-audit` 评分与修复；窄窗抽屉复测。
-- WebView2 原生窗口实跑（当前用 Edge 无头 Playwright）；PDF 内嵌实测（无 PDF 样例）。
-- `打包.bat` 仍为旧脚本，Phase 6 必须重写后再打包；当前未打包。
-- `qa_regress` / `audit_doclib` 仍依赖正本数据，未建 fixture；需在 Phase 5 补齐或明确历史基线。
-- 分屏、命令面板、未链接提及、标签拖拽/固定为 P1，尚未实现。
-- 树节点创建 UI 需再手工确认（API 已验证）。
+- 分屏、命令面板、未链接提及、标签、CodeMirror 6 为 P1。
+- PDF 原生预览未用真实 PDF 做视觉回归；WebView2 原生窗口只做启动/页面加载冒烟，未做自动点击。
+- 审计的 2 个 demo 数据前置项不应通过改产品逻辑“制造通过”；待用户真实语料复跑。
+
