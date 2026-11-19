@@ -3,6 +3,7 @@
 
 只监听 127.0.0.1，数据不出本机。
 """
+import base64
 import json
 import os
 import mimetypes
@@ -17,7 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .. import citations, config, db, importer, mindmap, picker, search, seed, system, tree
 
 STATIC = config.STATIC_DIR
-APP_BUILD = "2026-11-18-r15"
+APP_BUILD = "2026-11-19-r16"
 
 
 MAX_BODY_BYTES = 32 * 1024 * 1024          # 32MB，足够大文档导入请求
@@ -431,6 +432,33 @@ def api_dispatch(method: str, path: str, query: dict, body: dict):
 
             if path == "/api/seed":
                 return {"ok": True, **seed.seed(conn)}
+
+            if path == "/api/map/export":
+                # 导图 PNG/SVG 落盘到 data/mindmaps（浏览器/窗口模式位置一致）
+                name = mindmap.safe_name(str(body.get("name") or "导图"))
+                fmt = str(body.get("format") or "png").strip().lower()
+                data = body.get("data") or ""
+                if fmt not in ("png", "svg"):
+                    return {"ok": False, "error": "只支持 png / svg"}
+                try:
+                    if fmt == "png":
+                        raw_text = str(data)
+                        if raw_text.startswith("data:"):
+                            raw_text = raw_text.split(",", 1)[1]
+                        raw = base64.b64decode(raw_text, validate=True)
+                        if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+                            return {"ok": False, "error": "不是有效的 PNG 数据"}
+                    else:
+                        raw = str(data).encode("utf-8")
+                        if b"<svg" not in raw[:400]:
+                            return {"ok": False, "error": "不是有效的 SVG 数据"}
+                except Exception:
+                    return {"ok": False, "error": "导出数据解析失败"}
+                if len(raw) > 30 * 1024 * 1024:
+                    return {"ok": False, "error": "导出文件过大（>30MB）"}
+                out = mindmap.root_dir() / (name + "." + fmt)
+                out.write_bytes(raw)
+                return {"ok": True, "path": str(out), "name": out.name, "size": len(raw)}
 
             if path == "/api/map/save":
                 name = str(body.get("name") or "").strip()

@@ -601,7 +601,7 @@ function openCtxWord(e, itemId, wi){
     <div class="ci" data-act="search">🔍 AI 检索（资料库搜索）</div>
     <div class="ci" data-act="assoc">🧠 AI 联想（让模型展开）</div>
     <div class="sep"></div>
-    <div class="ttl">字号（当前 ${wd.fs || '自动'}）</div>
+    <div class="ttl">字号（当前 <span id="ctx-fs">${wd.fs || '自动'}</span>）</div>
     <div class="ci" data-act="fs-" style="display:inline-flex;width:31%">A−</div>
     <div class="ci" data-act="fs+" style="display:inline-flex;width:31%">A＋</div>
     <div class="ci" data-act="fs0" style="display:inline-flex;width:31%">自动</div>
@@ -616,18 +616,18 @@ function openCtxWord(e, itemId, wi){
     row.onclick = ()=>{
       const act = row.dataset.act;
       if(row.dataset.color){
-        pushUndo(); wd.color = row.dataset.color; renderClouds(); markDirty(); hideCtx(); return;
+        pushUndo(); wd.color = row.dataset.color; renderClouds(); markDirty(); return;
       }
-      if(act === 'fs-'){ pushUndo(); wd.fs = Math.max(9, (wd.fs || Math.round(11 + Math.min(12,(wd.w||1)*1.5))) - 2); renderClouds(); markDirty(); hideCtx(); return; }
-      if(act === 'fs+'){ pushUndo(); wd.fs = Math.min(40, (wd.fs || Math.round(11 + Math.min(12,(wd.w||1)*1.5))) + 2); renderClouds(); markDirty(); hideCtx(); return; }
-      if(act === 'fs0'){ pushUndo(); delete wd.fs; renderClouds(); markDirty(); hideCtx(); return; }
+      if(act === 'fs-'){ pushUndo(); wd.fs = Math.max(9, (wd.fs || Math.round(11 + Math.min(12,(wd.w||1)*1.5))) - 2); renderClouds(); markDirty(); const el=$('#ctx-fs'); if(el) el.textContent = wd.fs; return; }
+      if(act === 'fs+'){ pushUndo(); wd.fs = Math.min(40, (wd.fs || Math.round(11 + Math.min(12,(wd.w||1)*1.5))) + 2); renderClouds(); markDirty(); const el=$('#ctx-fs'); if(el) el.textContent = wd.fs; return; }
+      if(act === 'fs0'){ pushUndo(); delete wd.fs; renderClouds(); markDirty(); const el=$('#ctx-fs'); if(el) el.textContent = '自动'; return; }
       if(act === 'pickcolor'){
         const inp = document.createElement('input');
         inp.type = 'color'; inp.value = wd.color || '#33556f';
         inp.style.cssText = 'position:fixed;left:-100px;top:-100px';
         document.body.appendChild(inp);
         inp.onchange = ()=>{ pushUndo(); wd.color = inp.value; renderClouds(); markDirty(); inp.remove(); };
-        inp.click(); hideCtx(); return;
+        inp.click(); return;
       }
       if(act === 'search'){ location.href = '/?q=' + encodeURIComponent(word); return; }
       if(act === 'assoc'){
@@ -1213,15 +1213,15 @@ function openCtx(e, itemId){
       const applyAll = (fn)=>{ pushUndo(); targets.forEach(tid=>{ const x = state.map.items.find(i=>i.id===tid); if(x) fn(x); }); renderAll(); markDirty(); };
       if(act === 'shape'){ applyAll(x=>{ x.shape = row.dataset.shape; }); }
       else if(act === 'font'){ applyAll(x=>{ x.fontSize = Number(row.dataset.size) || 14; }); }
-      else if(act === 'color'){ pushUndo(); it.color = row.dataset.color; renderAll(); markDirty(); }
+      else if(act === 'color'){ applyAll(x=>{ x.color = row.dataset.color; }); }
       else if(act === 'pickcolor'){
         const inp = document.createElement('input');
         inp.type = 'color'; inp.value = it.color || '#2e6da4';
         inp.style.cssText = 'position:fixed;left:-100px;top:-100px';
         document.body.appendChild(inp);
-        inp.oninput = ()=>{ it.color = inp.value; renderAll(); };
-        inp.onchange = ()=>{ pushUndo(); it.color = inp.value; renderAll(); markDirty(); inp.remove(); };
-        inp.click(); hideCtx(); return;
+        inp.oninput = ()=>{ targets.forEach(tid=>{ const x=state.map.items.find(i=>i.id===tid); if(x) x.color = inp.value; }); renderAll(); };
+        inp.onchange = ()=>{ pushUndo(); targets.forEach(tid=>{ const x=state.map.items.find(i=>i.id===tid); if(x) x.color = inp.value; }); renderAll(); markDirty(); inp.remove(); };
+        inp.click(); return;
       }
       else if(act === 'cloudNew'){
         pushUndo();
@@ -1255,7 +1255,7 @@ function openCtx(e, itemId){
         renderAll(); markDirty();
       }
       else if(act === 'del'){ pushUndo(); eraseItem(it.id); }
-      hideCtx();
+      if(!['shape','font','color','pickcolor'].includes(act)) hideCtx();
     };
   });
 }
@@ -1526,10 +1526,19 @@ function download(name, blob){
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
 }
 
+async function saveExportToData(format, data){
+  const r = await postJSON('/api/map/export',
+    {name: state.name || '导图', format, data});
+  if(!r || !r.ok) throw new Error((r && r.error) || '保存失败');
+  toast('已保存到 ' + r.path, 4500);
+  return r;
+}
+
 function exportSvg(){
-  const svg = buildSvgString();
-  download((state.name || '导图') + '.svg', new Blob([svg], {type:'image/svg+xml'}));
-  toast('已导出 SVG');
+  try{
+    const svg = buildSvgString();
+    saveExportToData('svg', svg).catch(e=>toast('SVG 保存失败：' + e.message));
+  }catch(e){ toast('SVG 导出失败：' + e.message); }
 }
 
 function exportPng(){
@@ -1545,26 +1554,33 @@ function exportPng(){
     const g = cvs.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, cvs.width, cvs.height);
     g.drawImage(img, 0, 0, cvs.width, cvs.height);
-    cvs.toBlob((b)=>download((state.name || '导图') + '.png', b), 'image/png');
-    toast('已导出 PNG');
+    cvs.toBlob((b)=>{
+      if(!b){ toast('PNG 生成失败，可改用 SVG'); return; }
+      const fr = new FileReader();
+      fr.onload = ()=>saveExportToData('png', fr.result)
+        .catch(e=>toast('PNG 保存失败：' + e.message));
+      fr.onerror = ()=>toast('PNG 读取失败，可改用 SVG');
+      fr.readAsDataURL(b);
+    }, 'image/png');
   };
   img.onerror = ()=>toast('PNG 导出失败，可改用 SVG');
   img.src = url;
 }
 
 /* 一键从知识树生成（横向树布局，生成到新导图） */
-async function generateFromTree(autoName){
-  const roots = $$('#tree .tnode.root').map(r=>Number(r.dataset.nodeId)).filter(n=>!isNaN(n));
-  if(!roots.length){ toast('知识树是空的'); return; }
+async function generateFromTree(autoName, selectedIds){
+  const allIds = Object.keys(state.treeMap).map(Number);
+  const sel = new Set((selectedIds && selectedIds.length) ? selectedIds : allIds);
+  const rootsNodes = allIds
+    .filter(id => sel.has(id) && !(state.treeMap[id].parent_id && sel.has(state.treeMap[id].parent_id)))
+    .map(id => state.treeMap[id]).sort((a,b)=>a.id-b.id);
+  if(!rootsNodes.length){ toast('至少选择一个节点'); return; }
   const name = autoName || prompt('新导图名称', '知识树导图 ' + new Date().toLocaleDateString());
   if(!name) return;
   const palette = ['#2e6da4','#2e7d4f','#b06a12','#6a4c93','#0f7b8a','#a02a1e','#8a5a2b','#4a5568'];
   const items = [], edges = [];
   const COL = 250, ROW = 74, MIN_GAP = 8;
   let cursorY = 40;
-
-  const rootsNodes = Object.values(state.treeMap).filter(n=>roots.indexOf(n.id) >= 0);
-  rootsNodes.sort((a,b)=>a.id-b.id);
 
   function makeItem(node, depth, y){
     return {
@@ -1577,7 +1593,7 @@ async function generateFromTree(autoName){
   }
 
   function layout(node, depth){
-    const kids = node.children || [];
+    const kids = (node.children || []).filter(k => sel.has(k.id));
     if(!kids.length){
       const y = cursorY;
       cursorY += ROW + MIN_GAP;
@@ -1610,6 +1626,77 @@ async function generateFromTree(autoName){
   toast('已按知识树生成 ' + items.length + ' 个节点');
 }
 
+/* 生成前选择节点（默认全选；勾父带子，取消同理） */
+function openGeneratePicker(){
+  const roots = Object.values(state.treeMap).filter(n=>!n.parent_id);
+  if(!roots.length){ toast('知识树是空的'); return; }
+  const old = document.getElementById('gen-pick');
+  if(old) old.remove();
+  const mask = document.createElement('div');
+  mask.id = 'gen-pick';
+  mask.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:80;display:flex;align-items:center;justify-content:center';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:10px;width:min(520px,92vw);max-height:82vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25)';
+  box.innerHTML = `<div style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-weight:600;font-size:14px">选择要生成的节点</div>
+    <div style="padding:6px 12px;color:#6b7280;font-size:12px">默认全选；勾选父节点会带上子节点，取消同理。</div>
+    <div id="gen-list" style="padding:4px 10px 10px;overflow:auto;flex:1"></div>
+    <div style="padding:10px 12px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end">
+      <button id="gen-all">全选</button>
+      <button id="gen-none">清空</button>
+      <button id="gen-cancel">取消</button>
+      <button id="gen-ok" style="background:#1f4e79;color:#fff;border-color:#1f4e79">生成导图</button>
+    </div>`;
+  mask.appendChild(box); document.body.appendChild(mask);
+  const list = box.querySelector('#gen-list');
+
+  function setDesc(node, val){
+    (node.children || []).forEach(k=>{
+      const cb = list.querySelector(`input[data-id="${k.id}"]`);
+      if(cb) cb.checked = val;
+      setDesc(k, val);
+    });
+  }
+  function addRows(nodes, depth){
+    (nodes || []).forEach(n=>{
+      const row = document.createElement('label');
+      row.style.cssText = `display:flex;align-items:center;gap:8px;padding:3px 2px;padding-left:${depth*18+4}px;font-size:13px;cursor:pointer`;
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = true; cb.dataset.id = n.id;
+      cb.onchange = ()=>{
+        if(cb.checked){
+          let p = n.parent_id;
+          while(p){
+            const pcb = list.querySelector(`input[data-id="${p}"]`);
+            if(pcb) pcb.checked = true;
+            const pn = state.treeMap[p]; p = pn ? pn.parent_id : null;
+          }
+          setDesc(n, true);
+        }else{
+          setDesc(n, false);
+        }
+      };
+      const span = document.createElement('span');
+      span.textContent = n.name + (n.doc_count ? `（${n.doc_count}）` : '');
+      row.appendChild(cb); row.appendChild(span);
+      list.appendChild(row);
+      addRows(n.children, depth + 1);
+    });
+  }
+  addRows(roots, 0);
+
+  const close = ()=>mask.remove();
+  box.querySelector('#gen-all').onclick = ()=>list.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=true);
+  box.querySelector('#gen-none').onclick = ()=>list.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+  box.querySelector('#gen-cancel').onclick = close;
+  mask.onclick = (e)=>{ if(e.target === mask) close(); };
+  box.querySelector('#gen-ok').onclick = async ()=>{
+    const ids = Array.from(list.querySelectorAll('input[type=checkbox]:checked')).map(c=>Number(c.dataset.id));
+    if(!ids.length){ toast('至少选择一个节点'); return; }
+    close();
+    await generateFromTree(null, ids);
+  };
+}
+
 $('#btnHidden').onclick = ()=>{
   showHidden = !showHidden;
   $('#btnHidden').classList.toggle('active', showHidden);
@@ -1619,7 +1706,7 @@ $('#btnHidden').onclick = ()=>{
 $('#btnFit').onclick = ()=>fitView();
 $('#btnPng').onclick = ()=>exportPng();
 $('#btnSvg').onclick = ()=>exportSvg();
-$('#btnGen').onclick = ()=>generateFromTree();
+$('#btnGen').onclick = ()=>openGeneratePicker();
 
 /* ================= 撤销 ================= */
 function snap(){
