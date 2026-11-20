@@ -10,9 +10,13 @@ concurrency:
   group: "ci-${{ github.ref }}"
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: windows-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +38,7 @@ jobs:
       - name: Prepare empty data dir
         run: |
           New-Item -ItemType Directory -Force -Path "$env:DOCLIB_DATA" | Out-Null
-      - name: Run tests
+      - name: Core regression
         run: |
           python tests/smoke.py
           python tests/test_notes.py
@@ -42,3 +46,14 @@ jobs:
           python tests/test_partitions.py
           python tests/test_citations.py
           python tests/test_mindmap_gen.py
+      - name: v2 graph / reader / notes
+        run: |
+          python tests/test_graph.py
+          python tests/test_reader.py
+          python tests/test_notebook.py
+      - name: v2 context / migrations / workspace / HTTP
+        run: |
+          python tests/test_context.py
+          python tests/test_migrations_v2.py
+          python tests/test_workspace.py
+          python tests/test_http_v2.py

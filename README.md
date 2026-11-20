@@ -3,6 +3,7 @@
 > 版本 **2.0.0**（2026-11-19） ｜ 分支 `v2.0-dev` ｜ 基线 `v1.1.2-baseline`
 > 纯本地、单机、零 CDN 依赖；资料与笔记默认不出本机，只有你自己配置的 AI 请求会出网。
 > 设计方案与取舍见 [`docs/v2/`](docs/v2/)；本版把 DocLib 从「Word 资料库 + 导图」升级为「资料 / 图谱 / 阅读 / 笔记 / AI 伴学」统一工作台。
+> 维护交接、环境、测试、分支约定见 [`HANDOFF.md`](HANDOFF.md)。
 
 ![DocLib 2.0 深色三栏](docs/v2/screenshots/01-1440-dark-graph.png)
 
