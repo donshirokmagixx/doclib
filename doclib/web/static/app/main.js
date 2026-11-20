@@ -130,6 +130,10 @@ async function activateTab(id, { silent = false } = {}) {
   const ent = entityOfTab(tab);
   if (ent) state.activeEntity = ent;
   const host = el('div', { class: 'view-host' });
+  const oldHost = shell.refs.tabBody.querySelector('.view-host');
+  if (oldHost && typeof oldHost.__cleanup === 'function') {
+    try { oldHost.__cleanup(); } catch (e) { console.warn('view cleanup failed', e); }
+  }
   clear(shell.refs.tabBody);
   shell.refs.tabBody.append(host);
   shell.renderTabs();

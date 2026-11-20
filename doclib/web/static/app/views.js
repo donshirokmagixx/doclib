@@ -4,8 +4,11 @@ import {
   fmtSize, fmtTime, timeAgo, fileIcon, highlightTerms,
 } from './core.js';
 import { openTab, save } from './workspace.js';
+import { ForceSim, forceDefaults } from './graph-force.js';
 
 const POS_KEY = 'doclib.graph.positions.v1';
+const PIN_KEY = 'doclib.graph.pinned.v1';
+const PHYS_KEY = 'doclib.graph.physics.v1';
 
 export async function renderView(tab, host, state, actions) {
   clear(host);
@@ -64,16 +67,37 @@ async function renderGraph(tab, host, state, actions) {
   const inspector = el('div', { class: 'graph-inspector', hidden: true });
   const legend = el('div', { class: 'graph-legend' });
   const empty = el('div', { class: 'graph-empty', hidden: true });
-  const tip = el('div', { class: 'graph-tip', text: '滚轮缩放 · 拖动平移 · 双击节点打开 · 拖动节点固定' });
+  const tip = el('div', { class: 'graph-tip', text: '滚轮缩放 · 拖动平移 · 双击节点打开 · 拖动节点实时联动，松开后回稳' });
   view.append(canvas, tools, inspector, legend, empty, tip);
   host.append(view);
 
   let cy = null;
   let graph = null;
+  let sim = null;
   let selected = null;
   let dataById = new Map();
   let savePos = null;
+  let pinned = new Set();
+  let physics = forceDefaults();
   try { savePos = JSON.parse(localStorage.getItem(POS_KEY) || '{}'); } catch { savePos = {}; }
+  try { pinned = new Set(JSON.parse(localStorage.getItem(PIN_KEY) || '[]')); } catch { pinned = new Set(); }
+  try {
+    const savedPhys = JSON.parse(localStorage.getItem(PHYS_KEY) || '{}');
+    for (const k of ['repulsion', 'spring', 'damping']) {
+      if (Number.isFinite(Number(savedPhys[k]))) physics[k] = Number(savedPhys[k]);
+    }
+  } catch {}
+  const onVisibility = () => { if (document.hidden) stopSim('hidden'); };
+  const onBeforeUnload = () => { try { savePositions(); } catch {} };
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('beforeunload', onBeforeUnload);
+  host.__cleanup = () => {
+    try { stopSim('view-cleanup'); savePositions(); } catch {}
+    try { if (cy) { cy.destroy(); cy = null; } } catch {}
+    try { document.removeEventListener('visibilitychange', onVisibility); } catch {}
+    try { window.removeEventListener('beforeunload', onBeforeUnload); } catch {}
+    host.__cleanup = null;
+  };
 
   const p = tab.params || {};
   let scope = p.scope === 'local' ? 'local' : 'global';
@@ -134,6 +158,39 @@ async function renderGraph(tab, host, state, actions) {
       el('button', { class: 'btn sm', text: '刷新', onClick: load }),
     ]);
     tools.append(actionsRow);
+
+    // 物理参数：只影响拖动后的实时模拟，不改变初始 fCoSE 布局
+    const phys = el('details', { class: 'phys' });
+    phys.append(el('summary', { text: '物理参数' }));
+    const mkPhys = (label, key, min, max, step, fmt) => {
+      const row = el('div', { class: 'phys-row' });
+      const range = el('input', { type: 'range', min: String(min), max: String(max), step: String(step), value: String(physics[key]) });
+      const val = el('span', { class: 'phys-val', text: fmt(physics[key]) });
+      range.addEventListener('input', () => {
+        physics[key] = Number(range.value);
+        val.textContent = fmt(physics[key]);
+        if (sim) {
+          sim.opts[key] = physics[key];
+          sim.alpha = Math.max(sim.alpha, 0.45);
+          if (!sim.running) sim.start();
+        }
+        try { localStorage.setItem(PHYS_KEY, JSON.stringify(physics)); } catch {}
+      });
+      row.append(el('label', { text: label }), range, val);
+      return row;
+    };
+    phys.append(mkPhys('斥力', 'repulsion', 5000, 40000, 1000, v => `${Math.round(v / 1000)}k`));
+    phys.append(mkPhys('弹力', 'spring', 0.004, 0.030, 0.001, v => v.toFixed(3)));
+    phys.append(mkPhys('阻尼', 'damping', 0.75, 0.96, 0.01, v => v.toFixed(2)));
+    const resetPhys = el('button', { class: 'btn sm', text: '恢复默认', onClick: () => {
+      const d = forceDefaults();
+      physics.repulsion = d.repulsion; physics.spring = d.spring; physics.damping = d.damping;
+      if (sim) { sim.opts.repulsion = d.repulsion; sim.opts.spring = d.spring; sim.opts.damping = d.damping; }
+      try { localStorage.setItem(PHYS_KEY, JSON.stringify(physics)); } catch {}
+      renderTools();
+    }});
+    phys.append(el('div', { class: 'phys-actions' }, [resetPhys]));
+    tools.append(phys);
   }
 
   function checkRow(label, checked, onChange, color) {
@@ -183,6 +240,8 @@ async function renderGraph(tab, host, state, actions) {
   }
 
   function draw(data) {
+    stopSim('redraw');
+    try { savePositions(); } catch {}
     if (cy) { cy.destroy(); cy = null; }
     dataById = new Map((data.nodes || []).map(n => [n.id, n]));
     const css = getComputedStyle(document.documentElement);
@@ -225,6 +284,7 @@ async function renderGraph(tab, host, state, actions) {
         }},
         { selector: 'node[kind="document"]', style: { 'background-opacity': 0, 'border-width': 1, 'border-color': v('--ink-3'), shape: 'ellipse' } },
         { selector: 'node[kind="note"]', style: { shape: 'round-rectangle', 'border-width': 1, 'border-color': v('--cue') } },
+        { selector: 'node.pinned', style: { 'border-width': 2, 'border-color': v('--cue'), 'border-style': 'dashed' } },
         { selector: 'node.show-label', style: { 'text-opacity': 1 } },
         { selector: 'node.selected', style: { 'border-width': 3, 'border-color': v('--accent'), 'overlay-color': v('--accent'), 'overlay-opacity': .12, 'overlay-padding': 5 } },
         { selector: 'node.dim', style: { opacity: .25, 'text-opacity': 0 } },
@@ -244,6 +304,12 @@ async function renderGraph(tab, host, state, actions) {
     });
     if (!cy) { errorView(host, 'Cytoscape 未加载', actions); return; }
     window.__doclibCy = cy;
+    window.__doclibForce = () => (sim ? sim.stats() : null);
+    const saved = savePos || {};
+    cy.nodes().forEach(n => { const p = saved[n.id()]; if (p && Number.isFinite(p.x)) n.position(p); });
+    for (const n of cy.nodes()) {
+      if (pinned.has(n.id())) { n.scratch('_pinned', true); n.addClass('pinned'); }
+    }
     // 大图只给最重要的实体常显标签；其余 hover/选中显示，避免文字互相压住
     const labelNodes = Array.from(cy.nodes()).filter(n => n.data('kind') !== 'document')
       .sort((a, b) => (b.data('degree') || 0) - (a.data('degree') || 0));
@@ -253,14 +319,15 @@ async function renderGraph(tab, host, state, actions) {
       if (z > 1.25) labelNodes.forEach(n => n.addClass('show-label'));
       else if (z < 0.75) labelNodes.slice(42).forEach(n => n.removeClass('show-label'));
     });
-    const saved = savePos || {};
-    cy.nodes().forEach(n => { const p = saved[n.id()]; if (p && Number.isFinite(p.x)) n.position(p); });
+    const savedCount = cy.nodes().filter(n => saved[n.id()] && Number.isFinite(saved[n.id()].x)).length;
+    const savedAll = cy.nodes().length > 0 && savedCount === cy.nodes().length;
     cy.on('tap', 'node', evt => selectNode(evt.target));
     cy.on('dbltap', 'node', evt => openNode(evt.target.data()));
     cy.on('tap', evt => { if (evt.target === cy) clearSelection(); });
     cy.on('mouseover', 'node', evt => hoverNode(evt.target));
     cy.on('mouseout', 'node', () => { cy.nodes().removeClass('dim'); cy.edges().removeClass('dim hot'); });
-    // 节点拖动默认 1:1；按用户要求给一点“跟手加速”，仍以鼠标起点为锚，避免漂移
+    // 节点拖动：拖动节点跟随鼠标（1.3×跟手），其他节点由实时微模拟牵引/排斥。
+    // 注意：不在 grab 时启动模拟，避免单击节点也推动整张图。
     cy.on('grab', 'node', evt => {
       const n = evt.target;
       n.scratch('_doclibDrag', {
@@ -276,14 +343,19 @@ async function renderGraph(tab, host, state, actions) {
         x: s.x + (evt.position.x - s.mx) * f,
         y: s.y + (evt.position.y - s.my) * f,
       });
+      const fs = ensureSim();
+      if (fs) fs.updateDrag(evt.target);
     });
     cy.on('dragfree', 'node', evt => {
-      const n = evt.target;
-      const positions = {};
-      try { Object.assign(positions, JSON.parse(localStorage.getItem(POS_KEY) || '{}')); } catch {}
-      positions[n.id()] = { x: n.position('x'), y: n.position('y') };
-      localStorage.setItem(POS_KEY, JSON.stringify(positions));
+      evt.target.removeScratch('_doclibDrag');
+      try { savePositions(); } catch {}
+      if (sim && sim.dragged) sim.endDrag();
     });
+    if (savedAll) {
+      try { cy.resize(); cy.fit(cy.elements(), 70); if (cy.zoom() > 1.15) { cy.zoom(1.15); cy.center(cy.elements()); } } catch {}
+    } else {
+      runLayout(!savedCount);
+    }
     if (data.truncated) {
       empty.hidden = false;
       clear(empty);
@@ -292,11 +364,25 @@ async function renderGraph(tab, host, state, actions) {
         el('p', { class: 'hint', text: `当前显示 ${data.stats?.nodes || 0} / ${data.stats?.total_nodes || 0} 个节点。建议切到当前分区或局部图谱。` }),
       ]));
     }
-    runLayout(true);
   }
 
   function runLayout(force = true) {
     if (!cy) return;
+    stopSim('layout');
+    const pinnedPos = {};
+    cy.nodes().forEach(n => { if (n.scratch('_pinned')) pinnedPos[n.id()] = { x: n.position('x'), y: n.position('y') }; });
+    const finish = () => {
+      try {
+        if (!force) applySavedPositions();
+        for (const [id, p] of Object.entries(pinnedPos)) {
+          const n = cy.getElementById(id);
+          if (n && n.length) n.position(p);
+        }
+        cy.resize(); cy.fit(cy.elements(), 70);
+        if (cy.zoom() > 1.15) { cy.zoom(1.15); cy.center(cy.elements()); }
+        if (force) savePositions();
+      } catch {}
+    };
     const hasFcose = typeof window.cytoscapeFcose !== 'undefined';
     const name = hasFcose ? 'fcose' : 'cose';
     const opts = name === 'fcose' ? {
@@ -310,27 +396,92 @@ async function renderGraph(tab, host, state, actions) {
     };
     try {
       const lay = cy.layout(opts);
-      lay.one('layoutstop', () => {
-        try {
-          cy.resize(); cy.fit(cy.elements(), 70);
-          if (cy.zoom() > 1.15) { cy.zoom(1.15); cy.center(cy.elements()); }
-        } catch {}
-      });
+      lay.one('layoutstop', finish);
       lay.run();
     } catch (e) {
       console.warn('layout failed', e);
       try {
         const lay = cy.layout({ name: 'cose', animate: false, fit: true, padding: 70 });
-        lay.one('layoutstop', () => {
-          try { cy.resize(); cy.fit(cy.elements(), 70); if (cy.zoom() > 1.15) { cy.zoom(1.15); cy.center(cy.elements()); } } catch {}
-        });
+        lay.one('layoutstop', finish);
         lay.run();
       } catch {}
     }
   }
 
   function fit() { if (cy) cy.fit(undefined, 40); }
-  function rerunLayout() { runLayout(true); }
+  function rerunLayout() {
+    if (!cy) return;
+    stopSim('reset-layout');
+    try {
+      const p = {};
+      Object.assign(p, JSON.parse(localStorage.getItem(POS_KEY) || '{}'));
+      cy.nodes().forEach(n => { delete p[n.id()]; });
+      localStorage.setItem(POS_KEY, JSON.stringify(p));
+      savePos = p;
+    } catch {}
+    runLayout(true);
+  }
+
+  function ensureSim() {
+    if (!cy || (cy.destroyed && cy.destroyed())) return null;
+    if (!sim) {
+      sim = new ForceSim(cy, {
+        ...physics,
+        onSettle: () => { try { savePositions(); } catch {} },
+      });
+    } else if (sim.nodes.length !== cy.nodes().length) {
+      sim.rebuild();
+    }
+    return sim;
+  }
+
+  function stopSim(reason = '') {
+    if (!sim) return;
+    const s = sim;
+    sim = null;
+    try { s.stop(reason); } catch {}
+  }
+
+  function applySavedPositions() {
+    if (!cy) return;
+    for (const n of cy.nodes()) {
+      const p = (savePos || {})[n.id()];
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) n.position(p);
+    }
+  }
+
+  function savePositions() {
+    if (!cy || (cy.destroyed && cy.destroyed())) return;
+    const p = {};
+    try { Object.assign(p, JSON.parse(localStorage.getItem(POS_KEY) || '{}')); } catch {}
+    for (const n of cy.nodes()) {
+      const pos = n.position();
+      if (Number.isFinite(pos.x) && Number.isFinite(pos.y)) p[n.id()] = { x: pos.x, y: pos.y };
+    }
+    try { localStorage.setItem(POS_KEY, JSON.stringify(p)); savePos = p; } catch {}
+  }
+
+  function savePinned() {
+    try { localStorage.setItem(PIN_KEY, JSON.stringify([...pinned])); } catch {}
+  }
+
+  function togglePin(id) {
+    const n = cy && cy.getElementById(id);
+    if (!n || !n.length) return;
+    if (pinned.has(id)) {
+      pinned.delete(id);
+      n.scratch('_pinned', false);
+      n.removeClass('pinned');
+      toast('已取消固定');
+    } else {
+      pinned.add(id);
+      n.scratch('_pinned', true);
+      n.addClass('pinned');
+      toast('已固定位置');
+    }
+    savePinned();
+    if (selected && selected.id === id) renderInspector(selected);
+  }
 
   function selectNode(n) {
     if (!cy) return;
@@ -391,6 +542,11 @@ async function renderGraph(tab, host, state, actions) {
       acts.append(el('button', { class: 'btn', text: '局部图谱', onClick: () => actions.openGraph({ scope: 'local', center: d.id, title: d.label }) }));
       acts.append(el('button', { class: 'btn', text: '问 AI', onClick: () => actions.askWithContext({ kind: 'node', node_id: d.entity_id, label: `当前节点 · ${d.label}` }) }));
     }
+    acts.append(el('button', {
+      class: 'btn',
+      text: pinned.has(d.id) ? '取消固定' : '固定位置',
+      onClick: () => togglePin(d.id),
+    }));
     inspector.append(acts);
     const neighbors = (graph?.edges || []).filter(e => e.source === d.id || e.target === d.id).slice(0, 8);
     if (neighbors.length) {

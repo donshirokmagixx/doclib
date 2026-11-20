@@ -31,6 +31,15 @@
 .graph-tools .check input{width:12px;height:12px}
 .graph-tools .range{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3)}
 .graph-tools input[type=range]{flex:1;accent-color:var(--accent);height:2px}
+.graph-tools details.phys{margin-top:7px;border-top:1px solid var(--line);padding-top:6px}
+.graph-tools details.phys summary{cursor:pointer;font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);list-style:none;user-select:none}
+.graph-tools details.phys summary::-webkit-details-marker{display:none}
+.graph-tools details.phys summary:after{content:'+';float:right;color:var(--ink-3)}
+.graph-tools details.phys[open] summary:after{content:'−'}
+.graph-tools .phys-row{display:grid;grid-template-columns:32px 1fr 36px;align-items:center;gap:6px;height:22px;font-size:10px;color:var(--ink-2)}
+.graph-tools .phys-row input{width:100%}
+.graph-tools .phys-val{font-family:var(--font-mono);font-size:8.5px;color:var(--ink-3);text-align:right}
+.graph-tools .phys-actions{display:flex;justify-content:flex-end;margin-top:3px}
 .graph-legend{position:absolute;left:12px;bottom:12px;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--r-2);padding:8px 10px;display:flex;flex-direction:column;gap:4px;font-size:9.5px;color:var(--ink-2);z-index:5}
 .graph-legend .li{display:flex;align-items:center;gap:6px}
