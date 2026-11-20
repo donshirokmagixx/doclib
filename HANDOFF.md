@@ -117,7 +117,7 @@ $env:PYTHONUTF8="1"
 
 - `main` 分支已配置保护：禁止直接 push/force push/删除；PR + 至少 1 个 approval + CI 检查（`test (3.11)`、`test (3.12)`）通过。
 - Owner 账号仍可应急 bypass；日常改动请走 `feat/*`、`fix/*` 分支和 PR。
-- 维护者 `lamchinhvk` 的权限应为 **Maintain**（Collaborator），邀请接受后生效；若用户名有误请 owner 在 Settings → Collaborators 修正。
+- 维护者：当前**尚未添加 Collaborator**；owner 确认对方 GitHub 用户名后，在 Settings → Collaborators and teams → Add people 添加 **Maintain** 权限。
 - PR 要求：说明改动、测试命令/结果、截图（UI）、风险；不要提交 `data/`、密钥、真实资料。
 - 发布：GitHub Release tag + Windows ZIP 附件；源码不要塞 ZIP。
 
@@ -153,5 +153,5 @@ $env:PYTHONUTF8="1"
 ---
 
 Owner：`donshirokmagixx`  
-Maintainer：`lamchinhvk`（Maintain，待邀请接受）  
+Maintainer：待 owner 指定（当前未添加 Collaborator）  
 问题/阻塞：在 GitHub Issues 记录；涉及数据/密钥的问题不要贴到公开 Issue。
